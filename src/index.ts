@@ -19,6 +19,9 @@ interface SearchInput {
     aggs:boolean
 }
 
+/**
+ * RBSClient
+ */
 export class RBSClient {
 
     config: RBSConfiguration
