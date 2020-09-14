@@ -15,8 +15,8 @@ interface RBSConfiguration {
 
 interface SearchInput {
     userId?:string
-    filters: Array<Filter>
-    aggs:boolean
+    filters?: Array<Filter>
+    aggs?:boolean
 }
 
 /**
@@ -35,13 +35,13 @@ export class RBSClient {
         if(!input.userId) throw new Error('UserId is missing')
 
         return new Promise<SearchResponse>((resolve, reject) => {
-            let qsVal = QueryBuilder.filtersToQueryString(input.filters)
+            let qsVal = QueryBuilder.filtersToQueryString(input.filters!)
             let endpoint = input.aggs ? AGGS_ENDPOINT : SEARCH_ENDPOINT
             let result = axios
                 .get(this.config.serviceUrl! + endpoint + '?filters=' + qsVal, {
                     headers: {
                         "user-id": input.userId!
-                    }
+                    },
                 })
                 .then(function (response) {
                     resolve(response.data)
