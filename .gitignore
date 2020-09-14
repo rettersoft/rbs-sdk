@@ -4,3 +4,6 @@ node_modules
 dist/
 coverage/
 temp/
+**/*.d.ts
+**/*.js
+**/*.js.map
