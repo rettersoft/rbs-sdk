@@ -14,10 +14,11 @@ interface RBSConfiguration {
 
 interface SearchInput {
     userId?: string
+    searchTerm?: string
     categoryId: string
     culture: string
     filters?: Array<Filter>
-    aggs?: boolean
+    aggs: boolean
 }
 
 /**
@@ -36,29 +37,24 @@ export class RBSClient {
         if (!input.userId) throw new Error('UserId is missing')
 
         return new Promise<SearchResponse>((resolve, reject) => {
-            let qsVal = QueryBuilder.filtersToQueryString(input.filters!)
-            let endpoint = input.aggs ? AGGS_ENDPOINT : SEARCH_ENDPOINT
+            const qsVal = QueryBuilder.filtersToQueryString(input.filters!)
+            const endpoint = input.aggs ? AGGS_ENDPOINT : SEARCH_ENDPOINT
 
-            let result = axios
-                .get(this.config.serviceUrl! + endpoint + '?filters=' + qsVal
-                    + '&categoryId=' + input.categoryId
-                    + '&culture=' + input.culture,
-                    {
-                        headers: {
-                            'user-id': input.userId!
-                        },
-                    })
-                .then(function (response) {
-                    resolve(response.data)
-                })
-                .catch(function (error) {
-                    reject(error)
-                })
+            let url = this.config.serviceUrl! + endpoint + '?filters=' + qsVal
+                + '&categoryId=' + input.categoryId
+                + '&culture=' + input.culture
+            if (input.searchTerm) {
+                url += '&searchTerm=' + input.searchTerm
+            }
+            axios.get(url, {
+                headers: {
+                    'user-id': input.userId!
+                },
+            }).then(response => {
+                resolve(response.data)
+            }).catch(error => {
+                reject(error)
+            })
         })
     }
 }
-
-
-
-
-
