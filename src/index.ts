@@ -4,8 +4,8 @@ import { Filter, SearchResponse } from '../../services/product_service/src/searc
 import axios from 'axios'
 
 const SERVICE_URL = 'https://flcsbul0o9.execute-api.eu-west-1.amazonaws.com/prod'
-const AGGS_ENDPOINT = '/product/aggs'
-const SEARCH_ENDPOINT = '/product/search'
+const AGGS_ENDPOINT = '/product_service/aggs'
+const SEARCH_ENDPOINT = '/product_service/search'
 
 interface RBSConfiguration {
     projectId: string
