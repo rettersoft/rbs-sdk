@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../../services/product_service/src/search/queryBuilder'
-import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List } from '../../services/product_service/src/search/models'
+import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem } from '../../services/product_service/src/search/models'
 
 import axios from 'axios'
 
@@ -65,14 +65,10 @@ export class RBSClient {
         })
     }
 
-    public updateStock = (productId: string, stock: number): Promise<ServiceResponse<Boolean>> => {
+    public updateMerchantData = (items:Array<BulkUpdateItem>): Promise<ServiceResponse<Boolean>> => {
         return new Promise<ServiceResponse<Boolean>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/updateStock?productId=${productId}&stock=${stock}`
-            axios.get(url, {
-                headers: {
-
-                }
-            }).then(response => {
+            let url = `${this.config.serviceUrl!}/product_service/updateMerchantData`
+            axios.post(url, items).then(response => {
                 if (response.data.success) {
                     resolve(response.data)
                 } else {
@@ -84,30 +80,33 @@ export class RBSClient {
         })
     }
 
-    public updatePrice = (productId: string, price: number, discountedPrice: number): Promise<ServiceResponse<Boolean>> => {
-        return new Promise<ServiceResponse<Boolean>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/updatePrice?productId=${productId}&price=${price}&discountedPrice=${discountedPrice}`
-            axios.get(url, {
-                headers: {
-
-                }
-            }).then(response => {
-
-                if (response.data.success) {
-                    resolve(response.data)
-                } else {
-                    reject(new Error(response.data.message))
-                }
-
-            }).catch(error => {
-                reject(error)
-            })
-        })
-    }
+    
 
     public getProduct = (productId: string, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
             let url = `${this.config.serviceUrl!}/product_service/getProduct?productId=${productId}&culture=${culture}`
+            axios.get(url, {
+                headers: {
+
+                }
+            }).then(response => {
+
+                if (response.data.success) {
+                    resolve(response.data)
+                } else {
+                    reject(new Error(response.data.message))
+                }
+
+            }).catch(error => {
+                reject(error)
+            })
+        })
+    }
+
+    public getMultipleProducts = (productIds: Array<string>, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
+        return new Promise<ServiceResponse<Product>>((resolve, reject) => {
+            let productIdListStr = productIds.join('|')
+            let url = `${this.config.serviceUrl!}/product_service/getMultipleProducts?productIds=${productIdListStr}&culture=${culture}`
             axios.get(url, {
                 headers: {
 
