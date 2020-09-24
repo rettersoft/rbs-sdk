@@ -1,5 +1,5 @@
-import { QueryBuilder } from '../../services/product_service/src/search/queryBuilder'
-import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem, MerchantProductStock, StockOperationResult } from '../../services/product_service/src/search/models'
+import { QueryBuilder } from '../../services/ProductService2/src/search/queryBuilder'
+import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem, MerchantProductStock, StockOperationResult } from '../../services/ProductService2/src/search/models'
 
 import axios from 'axios'
 
@@ -38,7 +38,7 @@ interface StockOperation {
 /**
  * RBSClient
  */
-export class RBSClient {
+export default class RBSClient {
 
     config: RBSConfiguration
 

@@ -1,4 +1,4 @@
-import { RBSClient } from '../index'
+import RBSClient from '../index'
 
 const rbsClient = new RBSClient({
     projectId: 'muzaffer',

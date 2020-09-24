@@ -1,4 +1,4 @@
-import {RBSClient} from './index'
+import RBSClient from './index'
 
 const main = async () => {
     
