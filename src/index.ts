@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../../services/product_service/src/search/queryBuilder'
-import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem } from '../../services/product_service/src/search/models'
+import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem, MerchantProductStock, StockOperationResult } from '../../services/product_service/src/search/models'
 
 import axios from 'axios'
 
@@ -23,7 +23,15 @@ interface SearchInput {
     size?: number
 }
 
+interface StockOperationStockItem {
+    variant: string
+    qty: number
+}
 
+interface StockOperation {
+    productId: string
+    stocks: Array<StockOperationStockItem>
+}
 
 
 /**
@@ -36,6 +44,35 @@ export class RBSClient {
     constructor(config: RBSConfiguration) {
         this.config = config
         if (!this.config.serviceUrl) this.config.serviceUrl = SERVICE_URL
+    }
+
+    public executeStockOperation = (operations:Array<StockOperation>, simulated:boolean = false) : Promise<ServiceResponse<StockOperationResult>> => {
+        return new Promise<ServiceResponse<StockOperationResult>>((resolve, reject) => {
+
+            let body:Array<MerchantProductStock> = operations.map((o) => ({
+               merchant: {
+                   id: 'defaultMerchant'
+               },
+               productId: o.productId,
+               stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))
+            }))
+
+            let url = `${this.config.serviceUrl!}/product_service/${simulated ? 'simulatedStockOperation' : 'insertStockOperation'}`
+            axios.post(url, body).then(response => {
+                if (response.data.success) {
+                    resolve(response.data)
+                } else {
+                    reject(new Error(response.data.message))
+                }
+            }).catch(error => {
+                if(error.response.data && error.response.data.message) {
+                    reject(new Error(error.response.data.message))
+                } else {
+
+                    reject(error)
+                }
+            })
+        })
     }
 
     public search = (input: SearchInput = { filters: [], aggs: false, categoryId: '', culture: 'en_US', from: 0, size: 20 }): Promise<SearchResponse> => {
