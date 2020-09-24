@@ -9,6 +9,7 @@ const SEARCH_ENDPOINT = '/product_service/search'
 
 interface RBSConfiguration {
     projectId: string
+    merchantId?: string
     serviceUrl?: string
 }
 
@@ -47,11 +48,14 @@ export class RBSClient {
     }
 
     public executeStockOperation = (operations:Array<StockOperation>, simulated:boolean = false) : Promise<ServiceResponse<StockOperationResult>> => {
+
+        if(!this.config.merchantId) throw new Error('MerchantId should be set in constructor.')
+
         return new Promise<ServiceResponse<StockOperationResult>>((resolve, reject) => {
 
             let body:Array<MerchantProductStock> = operations.map((o) => ({
                merchant: {
-                   id: 'defaultMerchant'
+                   id: this.config.merchantId!
                },
                productId: o.productId,
                stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))
