@@ -1,8 +1,7 @@
 import RBSClient from '../index'
 
 const rbsClient = new RBSClient({
-    
-    serviceUrl: 'https://tkn9otec3d.execute-api.eu-west-1.amazonaws.com/prod/product_service'
+    enableLogs: true
 })
 
 rbsClient.search({

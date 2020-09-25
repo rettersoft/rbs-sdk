@@ -11,6 +11,7 @@ interface RBSConfiguration {
     apiKey?: string
     merchantId?: string
     serviceUrl?: string
+    enableLogs?: boolean
 }
 
 interface SearchInput {
@@ -45,6 +46,17 @@ export default class RBSClient {
     constructor(config: RBSConfiguration) {
         this.config = config
         if (!this.config.serviceUrl) this.config.serviceUrl = SERVICE_URL
+
+        if (this.config.enableLogs) {
+            axios.interceptors.request.use(request => {
+                console.log(JSON.stringify(request, null, 4))
+                return request
+            })
+            axios.interceptors.response.use(response => {
+                console.log(JSON.stringify(response, null, 4))
+                return response
+            })
+        }
     }
 
     private addApiKey = (url:string) : string => {
@@ -127,7 +139,7 @@ export default class RBSClient {
         })
     }
 
-    
+
 
     public getProduct = (productId: string, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
@@ -177,7 +189,7 @@ export default class RBSClient {
             let url = `${this.config.serviceUrl!}/ProductService2/getCategories?culture=${culture}`
             axios.get(this.addApiKey(url), {
                 headers: {
-                    
+
                 }
             }).then(response => {
 
@@ -198,7 +210,7 @@ export default class RBSClient {
             let url = `${this.config.serviceUrl!}/ProductService2/getList?culture=${culture}&listId=${listId}`
             axios.get(this.addApiKey(url), {
                 headers: {
-                    
+
                 }
             }).then(response => {
 
