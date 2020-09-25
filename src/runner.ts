@@ -3,7 +3,7 @@ import RBSClient from './index'
 const main = async () => {
     
     let client = new RBSClient({
-        projectId: 'default',
+        // projectId: 'default',
     })
 
     // try {

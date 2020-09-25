@@ -3,12 +3,12 @@ import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, Servic
 
 import axios from 'axios'
 
-const SERVICE_URL = 'https://rbstest.rettermobile.com'
-const AGGS_ENDPOINT = '/product_service/aggs'
-const SEARCH_ENDPOINT = '/product_service/search'
+const SERVICE_URL = 'https://rbsmaintest.rettermobile.com'
+const AGGS_ENDPOINT = '/ProductService2/aggs'
+const SEARCH_ENDPOINT = '/ProductService2/search'
 
 interface RBSConfiguration {
-    projectId: string
+    apiKey?: string
     merchantId?: string
     serviceUrl?: string
 }
@@ -47,6 +47,11 @@ export default class RBSClient {
         if (!this.config.serviceUrl) this.config.serviceUrl = SERVICE_URL
     }
 
+    private addApiKey = (url:string) : string => {
+        if(!this.config.apiKey) return url
+        return url + '&auth=' + this.config.apiKey
+    }
+
     public executeStockOperation = (operations:Array<StockOperation>, simulated:boolean = false) : Promise<ServiceResponse<StockOperationResult>> => {
 
         if(!this.config.merchantId) throw new Error('MerchantId should be set in constructor.')
@@ -61,8 +66,8 @@ export default class RBSClient {
                stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))
             }))
 
-            let url = `${this.config.serviceUrl!}/product_service/${simulated ? 'simulatedStockOperation' : 'insertStockOperation'}`
-            axios.post(url, body).then(response => {
+            let url = `${this.config.serviceUrl!}/ProductService2/${simulated ? 'simulatedStockOperation' : 'insertStockOperation'}`
+            axios.post(this.addApiKey(url), body).then(response => {
                 if (response.data.success) {
                     resolve(response.data)
                 } else {
@@ -95,7 +100,7 @@ export default class RBSClient {
             if (input.searchTerm) {
                 url += '&searchTerm=' + input.searchTerm
             }
-            axios.get(url, {
+            axios.get(this.addApiKey(url), {
                 headers: {
                 },
             }).then(response => {
@@ -108,8 +113,8 @@ export default class RBSClient {
 
     public updateMerchantData = (items:Array<BulkUpdateItem>): Promise<ServiceResponse<Boolean>> => {
         return new Promise<ServiceResponse<Boolean>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/updateMerchantData`
-            axios.post(url, items).then(response => {
+            let url = `${this.config.serviceUrl!}/ProductService2/updateMerchantData`
+            axios.post(this.addApiKey(url), items).then(response => {
                 if (response.data.success) {
                     resolve(response.data)
                 } else {
@@ -125,8 +130,8 @@ export default class RBSClient {
 
     public getProduct = (productId: string, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/getProduct?productId=${productId}&culture=${culture}`
-            axios.get(url, {
+            let url = `${this.config.serviceUrl!}/ProductService2/getProduct?productId=${productId}&culture=${culture}`
+            axios.get(this.addApiKey(url), {
                 headers: {
 
                 }
@@ -147,8 +152,8 @@ export default class RBSClient {
     public getMultipleProducts = (productIds: Array<string>, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
             let productIdListStr = productIds.join('|')
-            let url = `${this.config.serviceUrl!}/product_service/getMultipleProducts?productIds=${productIdListStr}&culture=${culture}`
-            axios.get(url, {
+            let url = `${this.config.serviceUrl!}/ProductService2/getMultipleProducts?productIds=${productIdListStr}&culture=${culture}`
+            axios.get(this.addApiKey(url), {
                 headers: {
 
                 }
@@ -168,8 +173,8 @@ export default class RBSClient {
 
     public getCategories = (culture: string = 'en_US'): Promise<ServiceResponse<CategoryTree>> => {
         return new Promise<ServiceResponse<CategoryTree>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/getCategories?culture=${culture}`
-            axios.get(url, {
+            let url = `${this.config.serviceUrl!}/ProductService2/getCategories?culture=${culture}`
+            axios.get(this.addApiKey(url), {
                 headers: {
                     
                 }
@@ -189,8 +194,8 @@ export default class RBSClient {
 
     public getListProducts = (listId:string, culture: string = 'en_US'): Promise<ServiceResponse<List>> => {
         return new Promise<ServiceResponse<List>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/product_service/getList?culture=${culture}&listId=${listId}`
-            axios.get(url, {
+            let url = `${this.config.serviceUrl!}/ProductService2/getList?culture=${culture}&listId=${listId}`
+            axios.get(this.addApiKey(url), {
                 headers: {
                     
                 }
