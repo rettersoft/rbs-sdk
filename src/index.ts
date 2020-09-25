@@ -162,6 +162,24 @@ export default class RBSClient {
         })
     }
 
+    public getProductStock = (productId: string): Promise<ServiceResponse<MerchantProductStock[]>> => {
+        return new Promise<ServiceResponse<MerchantProductStock[]>>((resolve, reject) => {
+            let url = `${this.config.serviceUrl!}/ProductService2/getProductStock?productId=${productId}`
+            axios.get(this.addApiKey(url), {
+                headers: {}
+            }).then(response => {
+
+                if (response.data.success) {
+                    resolve(response.data)
+                } else {
+                    reject(new Error(response.data.message))
+                }
+            }).catch(error => {
+                reject(error)
+            })
+        })
+    }
+
     public getMultipleProducts = (productIds: Array<string>, culture: string = 'en_US'): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
             let productIdListStr = productIds.join('|')
