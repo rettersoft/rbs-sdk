@@ -67,19 +67,22 @@ export default class RBSClient {
         return url + '&auth=' + this.config.apiKey
     }
 
-    public executeStockOperation = (operations:Array<StockOperation>, simulated:boolean = false) : Promise<ServiceResponse<StockOperationResult>> => {
+    public executeStockOperation = (operations:Array<StockOperation>, decrease: boolean = false, simulated:boolean = false) : Promise<ServiceResponse<StockOperationResult>> => {
 
         if(!this.config.merchantId) throw new Error('MerchantId should be set in constructor.')
 
         return new Promise<ServiceResponse<StockOperationResult>>((resolve, reject) => {
 
-            let body:Array<MerchantProductStock> = operations.map((o) => ({
-               merchant: {
-                   id: this.config.merchantId!
-               },
-               productId: o.productId,
-               stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))
-            }))
+            const body = {
+                decrease,
+                data: operations.map((o) => ({
+                    merchant: {
+                        id: this.config.merchantId!
+                    },
+                    productId: o.productId,
+                    stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))
+                }))
+            }
 
             let url = `${this.config.serviceUrl!}/ProductService2/${simulated ? 'simulatedStockOperation' : 'insertStockOperation'}`
             axios.post(this.addApiKey(url), body).then(response => {
@@ -164,9 +167,9 @@ export default class RBSClient {
         })
     }
 
-    public getProductStock = (productId: string): Promise<ServiceResponse<MerchantProductStock[]>> => {
+    public getProductStock = (productId: string, merchantId: string): Promise<ServiceResponse<MerchantProductStock[]>> => {
         return new Promise<ServiceResponse<MerchantProductStock[]>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/ProductService2/getProductStock?productId=${productId}`
+            let url = `${this.config.serviceUrl!}/ProductService2/getProductStock?productId=${productId}&merchantId=${merchantId}`
             axios.get(this.addApiKey(url), {
                 headers: {}
             }).then(response => {
