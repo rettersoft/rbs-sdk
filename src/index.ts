@@ -49,6 +49,7 @@ export default class RBSClient {
 
     private addApiKey = (url:string) : string => {
         if(!this.config.apiKey) return url
+        if(!url.includes('?')) url = url + '?'
         return url + '&auth=' + this.config.apiKey
     }
 
