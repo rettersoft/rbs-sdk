@@ -3,7 +3,8 @@ import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, Servic
 
 import axios from 'axios'
 
-const SERVICE_URL = 'https://rbsmaintest.rettermobile.com'
+const SERVICE_URL = 'https://rbs.rettermobile.com'
+const SERVICE_URL_TEST = 'https://rbsmaintest.rettermobile.com'
 const AGGS_ENDPOINT = '/ProductService2/aggs'
 const SEARCH_ENDPOINT = '/ProductService2/search'
 
@@ -12,6 +13,7 @@ interface RBSConfiguration {
     merchantId?: string
     serviceUrl?: string
     enableLogs?: boolean
+    testEnv?: boolean
 }
 
 interface SearchInput {
@@ -45,7 +47,7 @@ export default class RBSClient {
 
     constructor(config: RBSConfiguration) {
         this.config = config
-        if (!this.config.serviceUrl) this.config.serviceUrl = SERVICE_URL
+        if (!this.config.serviceUrl) this.config.serviceUrl = config.testEnv ? SERVICE_URL_TEST : SERVICE_URL
 
         if (this.config.enableLogs) {
             axios.interceptors.request.use(request => {
