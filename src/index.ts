@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../../services/ProductService2/src/search/queryBuilder'
-import { CategoryTree, Filter, Product, ProductAttribute, SearchResponse, ServiceResponse, List, BulkUpdateItem, MerchantProductStock, StockOperationResult } from '../../services/ProductService2/src/search/models'
+import { CategoryTree, Filter, Product, SearchResponse, ServiceResponse, List, BulkUpdateItem, StockOperationResult, SingleMerchantProductStock } from '../../services/ProductService2/src/search/models'
 
 import axios from 'axios'
 
@@ -167,9 +167,9 @@ export default class RBSClient {
         })
     }
 
-    public getProductStock = (productId: string, merchantId: string): Promise<ServiceResponse<MerchantProductStock[]>> => {
-        return new Promise<ServiceResponse<MerchantProductStock[]>>((resolve, reject) => {
-            let url = `${this.config.serviceUrl!}/ProductService2/getProductStock?productId=${productId}&merchantId=${merchantId}`
+    public getProductStock = (productId: string, merchantId: string, variant: string): Promise<ServiceResponse<SingleMerchantProductStock>> => {
+        return new Promise<ServiceResponse<SingleMerchantProductStock>>((resolve, reject) => {
+            let url = `${this.config.serviceUrl!}/ProductService2/getProductStock?productId=${productId}&merchantId=${merchantId}&variant=${variant}`
             axios.get(this.addApiKey(url), {
                 headers: {}
             }).then(response => {
