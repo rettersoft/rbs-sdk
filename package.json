@@ -1,6 +1,6 @@
 {
   "name": "@rettersoft/rbs-sdk",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "description": "Client sdk for retter business suite",
   "main": "dist/rbs-sdk/src/index.js",
   "types": "dist/rbs-sdk/src/index.d.ts",
@@ -22,8 +22,8 @@
     "typescript": "^4.0.2"
   },
   "dependencies": {
-    "@types/node": "^12.12.58",
-    "axios": "^0.20.0",
+    "@types/node": "^12.12.62",
+    "axios": "^0.19.2",
     "bodybuilder": "^2.2.21"
   },
   "bugs": {
