@@ -149,7 +149,7 @@ export default class RBSClient {
     public getProduct = (productId: string, culture: string = 'en_US', merchantId?: string): Promise<ServiceResponse<Product>> => {
         return new Promise<ServiceResponse<Product>>((resolve, reject) => {
             let url = `${this.config.serviceUrl!}/ProductService2/getProduct?productId=${productId}&culture=${culture}`
-            if (merchantId) url += `&merchantId${merchantId}`
+            if (merchantId) url += `&merchantId=${merchantId}`
             axios.get(this.addApiKey(url), {
                 headers: {
 
