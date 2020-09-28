@@ -186,7 +186,7 @@ export default class RBSClient {
         })
     }
 
-    public getProductStockByMerchant = (productId: string, merchantId: string, variant: string): Promise<ServiceResponse<SingleMerchantProductStock[]>> => {
+    public getProductStockByMerchant = (merchantId: string, variant: string): Promise<ServiceResponse<SingleMerchantProductStock[]>> => {
         return new Promise<ServiceResponse<SingleMerchantProductStock[]>>((resolve, reject) => {
             let url = `${this.config.serviceUrl!}/ProductService2/getProductStockByMerchant?merchantId=${merchantId}&variant=${variant}`
             axios.get(this.addApiKey(url), {
