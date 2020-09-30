@@ -251,9 +251,12 @@ export default class RBSClient {
         })
     }
 
-    public getListProducts = (listId:string, culture: string = 'en_US'): Promise<ServiceResponse<List>> => {
+    public getListProducts = (listId:string, culture: string = 'en_US', inStock: boolean = false): Promise<ServiceResponse<List>> => {
         return new Promise<ServiceResponse<List>>((resolve, reject) => {
             let url = `${this.config.serviceUrl!}/ProductService2/getList?culture=${culture}&listId=${listId}`
+            if (inStock) {
+                url += '&inStock=' + inStock
+            }
             axios.get(this.addApiKey(url), {
                 headers: {
 
