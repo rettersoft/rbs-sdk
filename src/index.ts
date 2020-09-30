@@ -24,7 +24,8 @@ interface SearchInput {
     filters?: Array<Filter>
     aggs: boolean,
     from?: number,
-    size?: number
+    size?: number,
+    inStock: boolean
 }
 
 interface StockOperationStockItem {
@@ -102,7 +103,7 @@ export default class RBSClient {
         })
     }
 
-    public search = (input: SearchInput = { filters: [], aggs: false, categoryId: '', culture: 'en_US', from: 0, size: 20 }): Promise<SearchResponse> => {
+    public search = (input: SearchInput = { filters: [], aggs: false, categoryId: '', culture: 'en_US', from: 0, size: 20, inStock: false }): Promise<SearchResponse> => {
         if (!input.userId) throw new Error('UserId is missing')
 
         return new Promise<SearchResponse>((resolve, reject) => {
@@ -115,6 +116,9 @@ export default class RBSClient {
                 + '&from=' + input.from
                 + '&size=' + input.size
                 + '&userId=' + input.userId
+            if (input.inStock) {
+                url += '&inStock=' + input.inStock
+            }
             if (input.searchTerm) {
                 url += '&searchTerm=' + input.searchTerm
             }
