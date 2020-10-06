@@ -16,6 +16,10 @@ interface RBSConfiguration {
     testEnv?: boolean
 }
 
+enum SortOrder {
+    ASC, DESC
+}
+
 interface SearchInput {
     userId?: string
     searchTerm?: string
@@ -25,6 +29,8 @@ interface SearchInput {
     aggs: boolean,
     from?: number,
     size?: number,
+    sortAttribute?: string,
+    sortOrder?: SortOrder,
     inStock: boolean
 }
 
@@ -103,19 +109,22 @@ export default class RBSClient {
         })
     }
 
-    public search = (input: SearchInput = { filters: [], aggs: false, categoryId: '', culture: 'en_US', from: 0, size: 20, inStock: false }): Promise<SearchResponse> => {
+    public search = (input: SearchInput = { filters: [], aggs: false, categoryId: '', culture: 'en_US', from: 0, size: 20, inStock: false, sortAttribute: 'price', sortOrder: SortOrder.DESC }): Promise<SearchResponse> => {
         if (!input.userId) throw new Error('UserId is missing')
 
         return new Promise<SearchResponse>((resolve, reject) => {
-            const qsVal = QueryBuilder.filtersToQueryString(input.filters!)
+            const filtersVal = QueryBuilder.filtersToQueryString(input.filters!)
             const endpoint = input.aggs ? AGGS_ENDPOINT : SEARCH_ENDPOINT
 
-            let url = this.config.serviceUrl! + endpoint + '?filters=' + qsVal
+            let url = this.config.serviceUrl! + endpoint + '?filters=' + filtersVal
                 + '&categoryId=' + input.categoryId
                 + '&culture=' + input.culture
                 + '&from=' + input.from
                 + '&size=' + input.size
                 + '&userId=' + input.userId
+                + '&sortBy=' + input.sortAttribute
+                + '&sortOrder=' + input.sortOrder
+
             if (input.inStock) {
                 url += '&inStock=' + input.inStock
             }
