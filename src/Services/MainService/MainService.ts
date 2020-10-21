@@ -26,8 +26,11 @@ export class MainService<T> extends Service<T> implements IMainService {
         },false)
 
         if (response.result) {
-            if(this.browser.inBrowser)
+            if(this.browser.inBrowser){
+                const data = this.browser.fetchRbsTokens()
+                if(data) this.browser.deleteRbsTokens()
                 this.browser.saveRbsTokens(response.result.refreshToken, response.result.accessToken, customToken)
+            }
 
             this.config.auth.clientAccessToken = response.result.accessToken
 

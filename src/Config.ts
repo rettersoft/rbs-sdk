@@ -58,11 +58,12 @@ export class Config<T> implements IConfig {
     }
 
     get auth() {
+        const auth = this._attribute.auth
         if(this.browser.inBrowser){
             const fetchedTokens = this.browser.fetchRbsTokens()
-            if(fetchedTokens) this.auth.clientAccessToken = fetchedTokens.RbsClientAccessToken || "null"
+            if(fetchedTokens) auth.clientAccessToken = fetchedTokens.RbsClientAccessToken || "null"
         }
-        return this._attribute.auth
+        return auth
     }
 
     set auth(auth: AuthInstance) {

@@ -47,6 +47,18 @@ export class Browser {
         }
     }
 
+    deleteRbsTokens(): void {
+        const rbsClientSessionId = localStorage.getItem(RbsLocalValueKeys.RbsClientSessionId)
+        if (!rbsClientSessionId) return undefined
+        this.deleteFromLocalStorage(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId)
+        this.deleteFromLocalStorage(BrowserRbsTokenKeys.RbsClientCustomToken + rbsClientSessionId)
+        this.deleteFromLocalStorage(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId)
+    }
+
+    deleteFromLocalStorage(key: string){
+        localStorage.removeItem(key)
+    }
+
     saveToLocalStorage(key: string, value: any){
         localStorage.setItem(key, value)
     }
