@@ -27,7 +27,9 @@ export namespace MainServiceTypes {
 
         clientRefreshToken(refreshToken: RbsJwtToken): Promise<RbsServiceResponse<ClientAuthenticateResponse>>
 
-        setClientAdminAccessToken(adminAccessToken: RbsJwtToken): void
+        setAdminAccessToken(adminAccessToken: RbsJwtToken): void
+
+        setClientAccessToken(clientAccessToken: MainServiceTypes.RbsJwtToken): void
     }
 
     export interface IServer extends IEndpointServer {

@@ -29,9 +29,7 @@ export class MainService<T> extends Service<T> implements IMainService {
             if(this.browser.inBrowser)
                 this.browser.saveRbsTokens(response.result.refreshToken, response.result.accessToken, customToken)
 
-            this.config.auth = {
-                clientAccessToken: response.result.accessToken
-            }
+            this.config.auth.clientAccessToken = response.result.accessToken
 
         }
 
@@ -51,9 +49,7 @@ export class MainService<T> extends Service<T> implements IMainService {
                     this.browser.saveRbsTokens(response.result.refreshToken, response.result.accessToken, data.RbsClientCustomToken)
                 }
             }
-            this.config.auth = {
-                clientAccessToken: response.result.accessToken
-            }
+            this.config.auth.clientAccessToken = response.result.accessToken
         }
         return response
     }
@@ -66,8 +62,12 @@ export class MainService<T> extends Service<T> implements IMainService {
         })
     }
 
-    setClientAdminAccessToken(adminAccessToken: MainServiceTypes.RbsJwtToken): void {
+    setAdminAccessToken(adminAccessToken: MainServiceTypes.RbsJwtToken): void {
         this.config.auth.adminAccessToken = adminAccessToken
+    }
+
+    setClientAccessToken(clientAccessToken: MainServiceTypes.RbsJwtToken): void {
+        this.config.auth.clientAccessToken = clientAccessToken
     }
 
 }

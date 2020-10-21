@@ -28,7 +28,7 @@ export class Browser {
 
 
     saveRbsTokens(refreshToken: RbsJwtToken, accessToken: RbsJwtToken, customToken: RbsJwtToken): void {
-        const rbsClientSessionId: string = crypt.createHash('md').update(customToken).digest('hex')
+        const rbsClientSessionId: string = crypt.createHash('md5').update(customToken).digest('hex')
 
         localStorage.setItem(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId, accessToken)
         localStorage.setItem(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId, refreshToken)
