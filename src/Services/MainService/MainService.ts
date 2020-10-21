@@ -41,7 +41,7 @@ export class MainService<T> extends Service<T> implements IMainService {
             body: {
                 refreshToken
             }
-        })
+        },false)
         if(response.result){
             if(this.browser.inBrowser){
                 const data = this.browser.fetchRbsTokens()

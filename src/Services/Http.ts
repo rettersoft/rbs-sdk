@@ -55,8 +55,9 @@ export class Http<T> {
      * @param method
      * @param methodPath Do Not starts with '/'
      * @param data
+     * @param autoTokenRefresh
      */
-    public async callService<R>(service: Service<T>, method: Method, methodPath: string, data?: { body?: object | string, params?: object }): Promise<RbsServiceResponse<R>> {
+    public async callService<R>(service: Service<T>, method: Method, methodPath: string, data?: { body?: object | string, params?: object }, autoTokenRefresh = true): Promise<RbsServiceResponse<R>> {
         const url = [this.config.schema + this.config.domain, service.basePath, methodPath].join('/')
         if (data && data.params) data.params = JSON.parse(JSON.stringify(data.params))
         const axiosConfig: AxiosRequestConfig = {
@@ -75,7 +76,7 @@ export class Http<T> {
                     {auth: this.config.auth.apiKey}
                 break
             case EndpointClient:
-                await this.refreshClientAccessTokenIsNotValid()
+                if(autoTokenRefresh) await this.refreshClientAccessTokenIsNotValid()
                 axiosConfig.params = axiosConfig.params ? {
                         ...axiosConfig.params,
                         auth: this.config.auth.clientAccessToken

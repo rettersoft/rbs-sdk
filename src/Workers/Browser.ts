@@ -30,10 +30,10 @@ export class Browser {
     saveRbsTokens(refreshToken: RbsJwtToken, accessToken: RbsJwtToken, customToken: RbsJwtToken): void {
         const rbsClientSessionId: string = crypt.createHash('md5').update(customToken).digest('hex')
 
-        localStorage.setItem(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId, accessToken)
-        localStorage.setItem(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId, refreshToken)
-        localStorage.setItem(BrowserRbsTokenKeys.RbsClientCustomToken + rbsClientSessionId, customToken)
-        localStorage.setItem(RbsLocalValueKeys.RbsClientSessionId, rbsClientSessionId)
+        this.saveToLocalStorage(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId, accessToken)
+        this.saveToLocalStorage(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId, refreshToken)
+        this.saveToLocalStorage(BrowserRbsTokenKeys.RbsClientCustomToken + rbsClientSessionId, customToken)
+        this.saveToLocalStorage(RbsLocalValueKeys.RbsClientSessionId, rbsClientSessionId)
     }
 
     fetchRbsTokens(): LocalSavedRbsTokens | undefined {
@@ -41,10 +41,18 @@ export class Browser {
         if (!rbsClientSessionId) return undefined
 
         return {
-            RbsClientAccessToken: localStorage.getItem(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId) || "",
-            RbsClientCustomToken: localStorage.getItem(BrowserRbsTokenKeys.RbsClientCustomToken + rbsClientSessionId) || "",
-            RbsClientRefreshToken: localStorage.getItem(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId) || "",
+            RbsClientAccessToken: this.getFromLocalStorage<RbsJwtToken>(BrowserRbsTokenKeys.RbsClientAccessToken + rbsClientSessionId) || "",
+            RbsClientCustomToken: this.getFromLocalStorage<RbsJwtToken>(BrowserRbsTokenKeys.RbsClientCustomToken + rbsClientSessionId) || "",
+            RbsClientRefreshToken: this.getFromLocalStorage<RbsJwtToken>(BrowserRbsTokenKeys.RbsClientRefreshToken + rbsClientSessionId) || "",
         }
+    }
+
+    saveToLocalStorage(key: string, value: any){
+        localStorage.setItem(key, value)
+    }
+
+    getFromLocalStorage<T>(key: string): T | null{
+        return <T | null>localStorage.getItem(key)
     }
 
 

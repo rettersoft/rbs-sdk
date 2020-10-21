@@ -1,6 +1,6 @@
 import * as dotenv from "dotenv"
-import RBS from "../index";
-import {MainServiceTypes} from "../Services/MainService/IMainService";
+import RBS from "../src";
+import {MainServiceTypes} from "../src/Services/MainService/IMainService";
 import RbsJwtToken = MainServiceTypes.RbsJwtToken;
 
 dotenv.config()

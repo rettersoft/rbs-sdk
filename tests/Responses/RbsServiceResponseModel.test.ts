@@ -1,4 +1,4 @@
-import {IBaseServiceResponseModel, RbsServiceResponse} from "../../Responses/RbsServiceResponse";
+import {IBaseServiceResponseModel, RbsServiceResponse} from "../../src/Responses/RbsServiceResponse";
 
 
 describe('BaseServiceResponseModel tests', function () {
