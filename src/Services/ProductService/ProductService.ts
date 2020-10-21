@@ -58,7 +58,7 @@ export class ProductService<T> extends Service<T> implements IProductService {
     }
 
     async getListProducts(listId: string, culture: string = 'en_US', inStock: boolean = false): Promise<RbsServiceResponse<List>> {
-        return this.http.callService<List>(this, "get", "getList", {
+        return await this.http.callService<List>(this, "get", "getList", {
             params: {
                 culture,
                 listId,
@@ -123,7 +123,7 @@ export class ProductService<T> extends Service<T> implements IProductService {
 
         const path = params.aggs ? ProductServicePaths.AGGS_ENDPOINT : ProductServicePaths.SEARCH_ENDPOINT
 
-        return this.http.callService<SearchResponse>(this, "get", path, {
+        return await this.http.callService<SearchResponse>(this, "get", path, {
             params: params
         })
     }

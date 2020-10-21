@@ -40,8 +40,10 @@ describe('Browser tests', function () {
             expect(resp.result).toBeDefined()
             await rbs.client.main.clientAuthenticate(resp.result!.customToken)
             console.log(dummyLocalStorage.entries())
-            await rbs.client.product.search()
+            const res = await rbs.client.product.search()
+            console.log(res.result)
 
-        })
+
+        }, (60 * 1000))
     })
 })

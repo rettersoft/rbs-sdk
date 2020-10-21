@@ -23,7 +23,7 @@ export class MainService<T> extends Service<T> implements IMainService {
             body: {
                 customToken
             }
-        })
+        },false)
 
         if (response.result) {
             if(this.browser.inBrowser)
