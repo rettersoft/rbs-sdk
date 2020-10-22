@@ -9,6 +9,7 @@ import {
     SingleMerchantProductStock,
     StockOperationResult
 } from "../../../../services/ProductService2/src/search/models";
+import { QueryBuilder } from "../../../../services/ProductService2/src/search/queryBuilder"
 import {Service} from "../Service";
 import {Http} from "../Http";
 import {Config} from "../../Config";
@@ -96,35 +97,44 @@ export class ProductService<T> extends Service<T> implements IProductService {
         })
     }
 
-    async getProductStockByMerchant(merchantId: string, variant: string): Promise<RbsServiceResponse<SingleMerchantProductStock[]>> {
+    async getProductStockByMerchant(merchantId: string): Promise<RbsServiceResponse<SingleMerchantProductStock[]>> {
         return await this.http.callService<SingleMerchantProductStock[]>(this, "get", "getProductStockByMerchant", {
             params: {
-                merchantId,
-                variant
+                merchantId
             }
         })
     }
 
     async search(input?: ProductServiceTypes.Inputs.SearchInput): Promise<RbsServiceResponse<SearchResponse>> {
+        
         let params: ProductServiceTypes.Inputs.SearchInput = {
             filters: [],
             aggs: false,
+            inStock: false,
             categoryId: '',
             culture: 'en_US',
             from: 0,
             size: 20,
-            inStock: false,
             sortAttribute: 'price',
-            sortOrder: SortOrder.DESC
+            sortOrder: SortOrder.DESC,
         }
         if (input) {
             params = {...params, ...input}
         }
 
+        if(params.inStock === false) {
+            delete params.inStock
+        }
+
         const path = params.aggs ? ProductServicePaths.AGGS_ENDPOINT : ProductServicePaths.SEARCH_ENDPOINT
 
+        const paramsNew = {
+            ...params,
+            filters: QueryBuilder.filtersToQueryString(params.filters!)
+        }
+
         return await this.http.callService<SearchResponse>(this, "get", path, {
-            params: params
+            params: paramsNew
         })
     }
 

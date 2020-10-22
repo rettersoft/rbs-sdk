@@ -66,7 +66,7 @@ export namespace ProductServiceTypes {
         updateMerchantData(items: Array<BulkUpdateItem>): Promise<RbsServiceResponse<boolean>>
         executeStockOperation(operations: Array<Inputs.StockOperation>, decrease: boolean, simulated: boolean):
             Promise<RbsServiceResponse<StockOperationResult>>;
-        getProductStockByMerchant(merchantId: string, variant: string): Promise<RbsServiceResponse<SingleMerchantProductStock[]>>
+        getProductStockByMerchant(merchantId: string): Promise<RbsServiceResponse<SingleMerchantProductStock[]>>
 
     }
 
