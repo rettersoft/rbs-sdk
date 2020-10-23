@@ -40,8 +40,11 @@ export default class RBS extends RbsGlobals {
     private readonly adminRoot: Root<EndpointAdmin>
     private readonly adminHttp: Http<EndpointAdmin>
 
+    private static instance: RBS | null = null;
+
     constructor(config?: IConfig) {
         super();
+
         this.config = config || {}
 
         this.clientConfig = new Config<EndpointClient>(EndpointClient, this.config)
@@ -56,6 +59,11 @@ export default class RBS extends RbsGlobals {
         this.serverRoot = new Root<EndpointServer>(this.serverHttp, this.serverConfig)
         this.adminRoot = new Root<EndpointAdmin>(this.adminHttp, this.adminConfig)
 
+        if(RBS.instance !== null){
+            return RBS.instance
+        }else{
+            RBS.instance = this
+        }
     }
 
 

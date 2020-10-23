@@ -1,9 +1,10 @@
 import {Endpoint, EndpointAdmin, EndpointClient, EndpointServer} from "./Services/Endpoints";
 import {AuthInstance} from "./Root";
-import pp = jasmine.pp;
 import {Browser} from "./Workers/Browser";
-import {MainServiceTypes} from "./Services/MainService/IMainService";
-import RbsJwtToken = MainServiceTypes.RbsJwtToken;
+import {IUserModel} from "./Models/UserModel";
+import {SessionStates, Triggers} from "./Triggers";
+
+export type SessionStateCallbackFunction = (sessionState: SessionStates, user: IUserModel | undefined) => void
 
 export interface IConfig {
     domain?: string;
@@ -14,8 +15,11 @@ export interface IConfig {
 
 export class Config<T> implements IConfig {
 
+    public readonly triggers: Triggers<T>;
+
     private readonly _attribute: any;
     private readonly browser: Browser;
+    private readonly sessionStateCallbacksArray: SessionStateCallbackFunction[]
 
     constructor(type: Endpoint<T>, props: IConfig) {
         this.browser = new Browser();
@@ -39,6 +43,16 @@ export class Config<T> implements IConfig {
             default:
                 throw new Error('Unexpected service type!')
         }
+        this.sessionStateCallbacksArray = []
+        this.triggers = new Triggers<T>(this)
+    }
+
+    get sessionStateCallbacks(): SessionStateCallbackFunction[] {
+        return this.sessionStateCallbacksArray
+    }
+
+    set sessionStateCallback(callback: SessionStateCallbackFunction) {
+        this.sessionStateCallbacksArray.push(callback)
     }
 
     get domain() {
@@ -59,9 +73,9 @@ export class Config<T> implements IConfig {
 
     get auth() {
         const auth = this._attribute.auth
-        if(this.browser.inBrowser){
+        if (this.browser.inBrowser) {
             const fetchedTokens = this.browser.fetchRbsTokens()
-            if(fetchedTokens) auth.clientAccessToken = fetchedTokens.RbsClientAccessToken || "null"
+            if (fetchedTokens) auth.clientAccessToken = fetchedTokens.RbsClientAccessToken || "null"
         }
         return auth
     }
