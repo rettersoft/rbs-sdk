@@ -21,7 +21,7 @@ export class MainService<T> extends Service<T> implements IMainService {
         this.globals = new RbsGlobals()
     }
 
-    onSessionStateChanged(callback: SessionStateCallbackFunction) {
+    onSessionStateChanged(callback: SessionStateCallbackFunction): void {
         if (this.browser.inBrowser) {
             this.config.sessionStateCallback = callback
         }
@@ -61,7 +61,7 @@ export class MainService<T> extends Service<T> implements IMainService {
             }
 
             this.config.auth.clientAccessToken = response.result.accessToken
-        }else{
+        } else {
             if (this.browser.inBrowser) {
                 this.config.triggers.sessionStateChangeTrigger(SessionStates.AUTH_FAILED)
             }
@@ -85,7 +85,7 @@ export class MainService<T> extends Service<T> implements IMainService {
                 this.config.triggers.sessionStateChangeTrigger(SessionStates.AUTH_REFRESHED)
             }
             this.config.auth.clientAccessToken = response.result.accessToken
-        }else{
+        } else {
             if (this.browser.inBrowser) {
                 this.config.triggers.sessionStateChangeTrigger(SessionStates.AUTH_REFRESH_FAILED)
             }

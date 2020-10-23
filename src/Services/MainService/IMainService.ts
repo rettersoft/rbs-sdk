@@ -1,5 +1,7 @@
 import {RbsServiceResponse} from "../../Responses/RbsServiceResponse";
 import {IEndpointAdmin, IEndpointClient, IEndpointServer} from "../Endpoints";
+import {SessionStateCallbackFunction} from "../../Config";
+import {IUserModel} from "../../Models/UserModel";
 
 export namespace MainServiceTypes {
 
@@ -30,6 +32,10 @@ export namespace MainServiceTypes {
         setAdminAccessToken(adminAccessToken: RbsJwtToken): void
 
         setClientAccessToken(clientAccessToken: MainServiceTypes.RbsJwtToken): void
+
+        onSessionStateChanged(callback: SessionStateCallbackFunction): void
+
+        getUser(): Promise<IUserModel>
     }
 
     export interface IServer extends IEndpointServer {
