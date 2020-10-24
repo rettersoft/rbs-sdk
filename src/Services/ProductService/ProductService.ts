@@ -32,12 +32,12 @@ export class ProductService<T> extends Service<T> implements IProductService {
 
 
     async executeStockOperation(operations: Array<ProductServiceTypes.Inputs.StockOperation>, decrease: boolean, simulated: boolean): Promise<RbsServiceResponse<StockOperationResult>> {
-        if (!this.config.merchantId) throw new Error('MerchantId should be set in constructor.')
+        
         const body = {
             decrease,
             data: operations.map((o) => ({
                 merchant: {
-                    id: this.config.merchantId!
+                    id: o.merchantId
                 },
                 productId: o.productId,
                 stocks: o.stocks.map(s => ({variantName: s.variant, stockQty: s.qty}))

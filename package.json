@@ -1,6 +1,6 @@
 {
   "name": "@rettersoft/rbs-sdk",
-  "version": "0.2.6",
+  "version": "0.2.8",
   "description": "Client sdk for retter business suite",
   "main": "dist/rbs-sdk/src/index.js",
   "types": "dist/rbs-sdk/src/index.d.ts",

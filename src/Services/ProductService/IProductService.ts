@@ -18,9 +18,17 @@ export namespace ProductServiceTypes {
             ASC, DESC
         }
     }
+
+    
     export namespace Inputs {
+
+        interface Merchant {
+            id: string
+        }
+
         export interface StockOperation {
             productId: string
+            merchantId: string
             stocks: Array<StockOperationStockItem>
         }
 
