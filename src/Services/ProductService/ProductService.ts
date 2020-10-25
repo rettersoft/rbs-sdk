@@ -59,12 +59,15 @@ export class ProductService<T> extends Service<T> implements IProductService {
     }
 
     async getListProducts(listId: string, culture: string = 'en_US', inStock: boolean = false): Promise<RbsServiceResponse<List>> {
+        let params:any = {
+            culture,
+            listId,
+        }
+        if(inStock !== undefined) {
+            params.inStock = inStock
+        }
         return await this.http.callService<List>(this, "get", "getList", {
-            params: {
-                culture,
-                listId,
-                inStock
-            }
+            params
         })
     }
 
