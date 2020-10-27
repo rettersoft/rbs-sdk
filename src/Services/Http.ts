@@ -6,6 +6,9 @@ import {RbsServiceResponse} from "../Responses/RbsServiceResponse";
 import {RbsGlobals} from "../Globals";
 import {Browser} from "../Workers/Browser";
 import {MainService} from "./MainService/MainService";
+import {MainServiceTypes} from "./MainService/IMainService";
+import {SessionStates} from "../Triggers";
+import RbsJwtToken = MainServiceTypes.RbsJwtToken;
 
 
 export enum ErrorCodes {
@@ -20,6 +23,7 @@ export class Http<T> {
     private readonly globals: RbsGlobals;
     private readonly browser: Browser;
     private readonly mainService: MainService<T>
+    private readonly clientAccessTokenRefreshQueue: Array<{ func: Function, refreshToken: RbsJwtToken }>
 
     constructor(type: Endpoint<T>, config: Config<T>) {
         this.serviceType = type
@@ -27,6 +31,7 @@ export class Http<T> {
         this.globals = new RbsGlobals();
         this.browser = new Browser();
         this.mainService = new MainService<T>(this, config)
+        this.clientAccessTokenRefreshQueue = []
         if (this.config.enableLogs) {
             console.log('CONFIG', this.config)
             axios.interceptors.request.use(request => {
@@ -76,7 +81,7 @@ export class Http<T> {
                     {auth: this.config.auth.apiKey}
                 break
             case EndpointClient:
-                if(autoTokenRefresh) await this.refreshClientAccessTokenIsNotValid()
+                if (autoTokenRefresh) await this.refreshClientAccessTokenIsNotValid()
                 axiosConfig.params = axiosConfig.params ? {
                         ...axiosConfig.params,
                         auth: this.config.auth.clientAccessToken
@@ -113,16 +118,32 @@ export class Http<T> {
      * This function supports only Browser
      * @private
      */
-    private async refreshClientAccessTokenIsNotValid() {
+    async refreshClientAccessTokenIsNotValid() {
         if (this.browser.inBrowser) {
             const local = this.browser.fetchRbsTokens()
             if (local && this.globals.tokenIsExpired(local.RbsClientAccessToken) && !this.globals.tokenIsExpired(local.RbsClientRefreshToken)) {
-                const response = await this.mainService.clientRefreshToken(local.RbsClientRefreshToken)
-                if (response.result) {
-                    this.browser.saveRbsTokens(response.result.refreshToken, response.result.accessToken, local.RbsClientCustomToken)
-                    this.config.auth.clientAccessToken = response.result.accessToken
+                this.clientAccessTokenRefreshQueue.push({
+                    func: this.mainService.clientRefreshToken,
+                    refreshToken: local.RbsClientRefreshToken
+                })
+                if (this.clientAccessTokenRefreshQueue.length === 1) {
+                    await this.clientAccessTokenRefreshQueueConsumer()
                 }
             }
+        }
+    }
+
+    /**
+     * Support only browser
+     * to refresh token synchronously
+     * @private
+     */
+    private async clientAccessTokenRefreshQueueConsumer() {
+        const callableInstance = this.clientAccessTokenRefreshQueue[0]
+        await this.mainService.clientRefreshToken(callableInstance.refreshToken)
+        this.clientAccessTokenRefreshQueue.shift()
+        if(this.clientAccessTokenRefreshQueue.length > 0){
+            await this.clientAccessTokenRefreshQueueConsumer()
         }
     }
 

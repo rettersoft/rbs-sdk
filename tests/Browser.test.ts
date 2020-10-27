@@ -36,9 +36,16 @@ describe('Browser tests', function () {
         })
 
         test('Client authenticate browser operation success', async () => {
-            const resp = await rbs.server.main.generateCustomToken("DummyUserFromRbsSdkTest")
+            const userId = "DummyUserFromRbsSdkTest"
+            const resp = await rbs.server.main.generateCustomToken(userId)
             expect(resp.result).toBeDefined()
+
             await rbs.client.main.clientAuthenticate(resp.result!.customToken)
+
+            const user = await rbs.client.main.getUser()
+            expect(user).toBeDefined()
+            expect(user.userId).toEqual(userId)
+
             console.log(dummyLocalStorage.entries())
             const res = await rbs.client.product.search()
             console.log(res.result)
