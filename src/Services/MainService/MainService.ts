@@ -31,8 +31,14 @@ export class MainService<T> extends Service<T> implements IMainService {
      * @return IUserModel
      * @throws Error
      */
-    async getUser(): Promise<IUserModel> {
+    async getUser(): Promise<IUserModel | undefined> {
         await this.http.refreshClientAccessTokenIsNotValid()
+
+        let tokenRefreshing = this.http.tokenRefreshing
+        while (this.http.tokenRefreshing) {
+            await this.globals.sleep(100)
+            tokenRefreshing = this.http.tokenRefreshing
+        }
         const payload = this.getAccessTokenPayloadIfNotExpired()
         if (payload) {
             const user: IUserModel = {

@@ -16,7 +16,14 @@ export class RbsGlobals implements IRbsGlobals {
     tokenIsExpired(token: RbsJwtToken): boolean {
         const payload = this.getRbsTokenPayload(token)
         return payload.exp < (Math.round(Date.now() / 1000))
+    }
 
+    async sleep(milliseconds: number){
+        return new Promise(resolve => {
+            setTimeout(()=>{
+                resolve(true)
+            }, milliseconds)
+        })
     }
 
 }

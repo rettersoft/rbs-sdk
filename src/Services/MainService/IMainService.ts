@@ -35,7 +35,7 @@ export namespace MainServiceTypes {
 
         onSessionStateChanged(callback: SessionStateCallbackFunction): void
 
-        getUser(): Promise<IUserModel>
+        getUser(): Promise<IUserModel | undefined>
     }
 
     export interface IServer extends IEndpointServer {

@@ -7,7 +7,6 @@ import {RbsGlobals} from "../Globals";
 import {Browser} from "../Workers/Browser";
 import {MainService} from "./MainService/MainService";
 import {MainServiceTypes} from "./MainService/IMainService";
-import {SessionStates} from "../Triggers";
 import RbsJwtToken = MainServiceTypes.RbsJwtToken;
 
 
@@ -18,12 +17,14 @@ export enum ErrorCodes {
 
 export class Http<T> {
 
+    public tokenRefreshing: boolean;
+
     private readonly serviceType: Endpoint<T>;
     private readonly config: Config<T>
     private readonly globals: RbsGlobals;
     private readonly browser: Browser;
     private readonly mainService: MainService<T>
-    private readonly clientAccessTokenRefreshQueue: Array<{ func: Function, refreshToken: RbsJwtToken }>
+    private readonly clientAccessTokenRefreshQueue: Array<{ refreshToken: RbsJwtToken }>
 
     constructor(type: Endpoint<T>, config: Config<T>) {
         this.serviceType = type
@@ -32,6 +33,7 @@ export class Http<T> {
         this.browser = new Browser();
         this.mainService = new MainService<T>(this, config)
         this.clientAccessTokenRefreshQueue = []
+        this.tokenRefreshing = false
         if (this.config.enableLogs) {
             console.log('CONFIG', this.config)
             axios.interceptors.request.use(request => {
@@ -119,18 +121,20 @@ export class Http<T> {
      * @private
      */
     async refreshClientAccessTokenIsNotValid() {
-        if (this.browser.inBrowser) {
+        if(this.clientSessionCanRefresh()){
             const local = this.browser.fetchRbsTokens()
-            if (local && this.globals.tokenIsExpired(local.RbsClientAccessToken) && !this.globals.tokenIsExpired(local.RbsClientRefreshToken)) {
-                this.clientAccessTokenRefreshQueue.push({
-                    func: this.mainService.clientRefreshToken,
-                    refreshToken: local.RbsClientRefreshToken
-                })
-                if (this.clientAccessTokenRefreshQueue.length === 1) {
-                    await this.clientAccessTokenRefreshQueueConsumer()
-                }
+            this.clientAccessTokenRefreshQueue.push({
+                refreshToken: local!.RbsClientRefreshToken
+            })
+            if (this.clientAccessTokenRefreshQueue.length === 1) {
+                await this.clientAccessTokenRefreshQueueConsumer()
             }
         }
+    }
+
+    clientSessionCanRefresh(): boolean{
+        const local = this.browser.fetchRbsTokens()
+        return !!(this.browser.inBrowser && local && this.globals.tokenIsExpired(local.RbsClientAccessToken) && !this.globals.tokenIsExpired(local.RbsClientRefreshToken));
     }
 
     /**
@@ -140,9 +144,13 @@ export class Http<T> {
      */
     private async clientAccessTokenRefreshQueueConsumer() {
         const callableInstance = this.clientAccessTokenRefreshQueue[0]
-        await this.mainService.clientRefreshToken(callableInstance.refreshToken)
+        if(this.clientSessionCanRefresh()){
+            this.tokenRefreshing = true
+            await this.mainService.clientRefreshToken(callableInstance.refreshToken)
+            this.tokenRefreshing = false
+        }
         this.clientAccessTokenRefreshQueue.shift()
-        if(this.clientAccessTokenRefreshQueue.length > 0){
+        if (this.clientAccessTokenRefreshQueue.length > 0) {
             await this.clientAccessTokenRefreshQueueConsumer()
         }
     }
