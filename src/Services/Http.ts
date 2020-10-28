@@ -122,6 +122,11 @@ export class Http<T> {
      */
     async refreshClientAccessTokenIsNotValid() {
         if(this.clientSessionCanRefresh()){
+            let tokenRefreshing = this.tokenRefreshing
+            while(tokenRefreshing){
+                await this.globals.sleep(100)
+                tokenRefreshing = this.tokenRefreshing
+            }
             const local = this.browser.fetchRbsTokens()
             this.clientAccessTokenRefreshQueue.push({
                 refreshToken: local!.RbsClientRefreshToken
