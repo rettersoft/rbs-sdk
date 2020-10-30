@@ -138,8 +138,11 @@ export class Http<T> {
     }
 
     clientSessionCanRefresh(): boolean{
-        const local = this.browser.fetchRbsTokens()
-        return !!(this.browser.inBrowser && local && this.globals.tokenIsExpired(local.RbsClientAccessToken) && !this.globals.tokenIsExpired(local.RbsClientRefreshToken));
+        if(this.browser.inBrowser){
+            const local = this.browser.fetchRbsTokens()
+            return !!(this.browser.inBrowser && local && this.globals.tokenIsExpired(local.RbsClientAccessToken) && !this.globals.tokenIsExpired(local.RbsClientRefreshToken));
+        }
+        return false
     }
 
     /**

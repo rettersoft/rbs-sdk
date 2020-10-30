@@ -8,6 +8,10 @@ export namespace MainServiceTypes {
 
     export type RbsJwtToken = string
 
+    export interface GeneralResponse {
+        message: string
+    }
+
     export interface GenerateCustomTokenResponse {
         customToken: RbsJwtToken
     }
@@ -36,6 +40,8 @@ export namespace MainServiceTypes {
         onSessionStateChanged(callback: SessionStateCallbackFunction): void
 
         getUser(): Promise<IUserModel | undefined>
+
+        clientLogout(): Promise<RbsServiceResponse<GeneralResponse>>
     }
 
     export interface IServer extends IEndpointServer {

@@ -102,8 +102,20 @@ export class MainService<T> extends Service<T> implements IMainService {
         })
     }
 
-    async clientLogout(){
-
+    async clientLogout(): Promise<RbsServiceResponse<MainServiceTypes.GeneralResponse>>{
+        const response = await this.http.callService<MainServiceTypes.GeneralResponse>(this, "get", "logout", {
+            params: {
+                auth: this.config.auth.clientAccessToken
+            }
+        })
+        if(!response.result && response.error){
+            throw new Error('Rbs logout failed')
+        }else{
+            if(this.browser.inBrowser){
+                this.browser.deleteRbsTokens()
+            }
+            return response
+        }
     }
 
     setAdminAccessToken(adminAccessToken: MainServiceTypes.RbsJwtToken): void {
