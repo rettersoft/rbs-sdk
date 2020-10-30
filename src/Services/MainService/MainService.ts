@@ -112,6 +112,7 @@ export class MainService<T> extends Service<T> implements IMainService {
             throw new Error('Rbs logout failed')
         }else{
             if(this.browser.inBrowser){
+                this.config.triggers.sessionStateChangeTrigger(SessionStates.LOGOUT)
                 this.browser.deleteRbsTokens()
             }
             return response
