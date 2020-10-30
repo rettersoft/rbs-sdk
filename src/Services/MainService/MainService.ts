@@ -102,6 +102,10 @@ export class MainService<T> extends Service<T> implements IMainService {
         })
     }
 
+    async clientLogout(){
+
+    }
+
     setAdminAccessToken(adminAccessToken: MainServiceTypes.RbsJwtToken): void {
         this.config.auth.adminAccessToken = adminAccessToken
     }
