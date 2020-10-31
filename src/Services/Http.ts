@@ -53,7 +53,7 @@ export class Http<T> {
                 }
                 return response
             }, err=>{
-                if(err){
+                if(err && err.response && err.response.status === 401){
                     this.config.triggers.sessionStateChangeTrigger(SessionStates.LOGOUT)
                 }
             })
