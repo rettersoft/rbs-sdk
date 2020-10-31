@@ -45,20 +45,19 @@ export class Http<T> {
                 }
                 return request
             })
-        }
-        axios.interceptors.response.use(response => {
-            if (this.config.enableLogs) {
+            axios.interceptors.response.use(response => {
                 try {
                     console.log('response', JSON.stringify(response, null, 4))
                 } catch (e) {
                     console.log('response', response)
                 }
-            }
-            if(response.status === 401){
-                this.config.triggers.sessionStateChangeTrigger(SessionStates.LOGOUT)
-            }
-            return response
-        })
+                return response
+            }, err=>{
+                if(err){
+                    this.config.triggers.sessionStateChangeTrigger(SessionStates.LOGOUT)
+                }
+            })
+        }
     }
 
 
@@ -191,7 +190,7 @@ export class Http<T> {
                 error: {
                     code: ErrorCodes.UNHANDLED_ERROR,
                     error: 'internal error occurred',
-                    message: axiosResponse.data && axiosResponse.data.message ? axiosResponse.data.message : ""
+                    message: "error"
                 }
             })
         }
