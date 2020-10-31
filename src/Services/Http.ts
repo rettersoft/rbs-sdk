@@ -7,6 +7,7 @@ import {RbsGlobals} from "../Globals";
 import {Browser} from "../Workers/Browser";
 import {MainService} from "./MainService/MainService";
 import {MainServiceTypes} from "./MainService/IMainService";
+import {SessionStates} from "../Triggers";
 import RbsJwtToken = MainServiceTypes.RbsJwtToken;
 
 
@@ -44,15 +45,20 @@ export class Http<T> {
                 }
                 return request
             })
-            axios.interceptors.response.use(response => {
+        }
+        axios.interceptors.response.use(response => {
+            if (this.config.enableLogs) {
                 try {
                     console.log('response', JSON.stringify(response, null, 4))
                 } catch (e) {
                     console.log('response', response)
                 }
-                return response
-            })
-        }
+            }
+            if(response.status === 401){
+                this.config.triggers.sessionStateChangeTrigger(SessionStates.LOGOUT)
+            }
+            return response
+        })
     }
 
 
