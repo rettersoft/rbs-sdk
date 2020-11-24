@@ -1,91 +1,201 @@
-import {Config, IConfig} from "./Config";
-import {EndpointAdmin, EndpointClient, EndpointServer} from "./Services/Endpoints";
-import {Root} from "./Root";
-import {Http} from "./Services/Http";
-import {ProductService} from "./Services/ProductService/ProductService";
-import {ProductServiceTypes} from "./Services/ProductService/IProductService";
-import {MainServiceTypes} from "./Services/MainService/IMainService";
-import {MainService} from "./Services/MainService/MainService";
-import {RbsGlobals} from "./Globals";
 
 
-interface IRBSClientInstance {
-    product: ProductServiceTypes.IClient
-    main: MainServiceTypes.IClient
+
+
+import { Subject, ObservableInput, Observable, from, zip } from 'rxjs';
+import { tap, concatMap } from 'rxjs/operators';
+import jwt from 'jsonwebtoken'
+import api from './api'
+import jwtDecode from "jwt-decode";
+
+interface RbsJwtPayload {
+    serviceId?: string
+    projectId?: string
+    clientId?: string
+    iat?: number
+    exp?: number
 }
 
-interface IRBSServerInstance {
-    product: ProductServiceTypes.IServer
-    main: MainServiceTypes.IServer
+interface RBSTokenData {
+    accessToken: string
+    refreshToken: string
+    isServiceToken: boolean
 }
 
-interface IRBSAdminInstance {
-    product: ProductServiceTypes.IAdmin
-    main: MainServiceTypes.IAdmin
+interface AuthWithCustomTokenResult {
+    success?: string
+    message?: string
+    uid?: string
+    tokenData?: RBSTokenData
 }
 
-export default class RBS extends RbsGlobals {
-    private readonly config: IConfig
+type AuthWithCustomTokenCallBack = (resp: any) => any;
+type SuccessCallBack = (resp: any) => any;
+type ErrorCallBack = (e: any) => any;
+interface RBSAction {
+    action?: string
+    data?: any
+    onSuccess?: SuccessCallBack
+    onError?: ErrorCallBack
+}
 
-    private readonly clientConfig: Config<EndpointClient>
-    private readonly clientRoot: Root<EndpointClient>
-    private readonly clientHttp: Http<EndpointClient>
+interface RBSClientConfig {
+    projectId: string
+    secretKey?: string
+    developerId?: string
+    serviceId?: string
+}
 
+const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
 
-    private readonly serverConfig: Config<EndpointServer>
-    private readonly serverRoot: Root<EndpointServer>
-    private readonly serverHttp: Http<EndpointServer>
-
-    private readonly adminConfig: Config<EndpointAdmin>
-    private readonly adminRoot: Root<EndpointAdmin>
-    private readonly adminHttp: Http<EndpointAdmin>
+export default class RBS {
 
     private static instance: RBS | null = null;
 
-    constructor(config?: IConfig) {
-        super();
+    private commandQueue = new Subject<RBSAction>();
 
-        this.config = config || {}
+    
 
-        this.clientConfig = new Config<EndpointClient>(EndpointClient, this.config)
-        this.serverConfig = new Config<EndpointServer>(EndpointServer, this.config)
-        this.adminConfig = new Config<EndpointAdmin>(EndpointAdmin, this.config)
+    clientConfig: RBSClientConfig
 
-        this.clientHttp = new Http<EndpointClient>(EndpointClient, this.clientConfig)
-        this.serverHttp = new Http<EndpointServer>(EndpointServer, this.serverConfig)
-        this.adminHttp = new Http<EndpointAdmin>(EndpointAdmin, this.adminConfig)
+    // Used in node env
+    private latestTokenData?: RBSTokenData
 
-        this.clientRoot = new Root<EndpointClient>(this.clientHttp, this.clientConfig)
-        this.serverRoot = new Root<EndpointServer>(this.serverHttp, this.serverConfig)
-        this.adminRoot = new Root<EndpointAdmin>(this.adminHttp, this.adminConfig)
+    constructor(config: RBSClientConfig) {
 
-        if(RBS.instance !== null){
-            return RBS.instance
-        }else{
-            RBS.instance = this
+        this.clientConfig = config
+
+        let incomingAction = this.commandQueue.asObservable()
+
+        let getTokenPipe = incomingAction.pipe(
+            concatMap((e, i): ObservableInput<any> => {
+                console.log("HERE 1")
+                return this.getTokenAsObservable()
+            }),
+            tap(tokenData => {
+                console.log(tokenData)
+                this.setTokenData(tokenData)
+            })
+        )
+
+        let actionResult = zip(incomingAction, getTokenPipe).pipe(
+            concatMap(([action, tokenData]) => {
+                console.log("HERE 2 action", action.action, "access token", tokenData.accessToken.substr(tokenData.accessToken.length - 5))
+                let endpoint = tokenData.isServiceToken ? '/service/action' : '/user/action'
+                return api.post(endpoint, action.data, {
+                    action: action.action,
+                    auth: tokenData.accessToken
+                })
+            })
+        )
+
+        zip(incomingAction, actionResult).subscribe(([action, result]) => {
+            if(action.onSuccess) {
+                action.onSuccess(result)
+            }
+        })
+        
+    }
+
+    getTokenAsObservable = (): Observable<RBSTokenData> => {
+
+        if (this.clientConfig.secretKey && this.clientConfig.serviceId) {
+            let token = jwt.sign({
+                projectId: this.clientConfig.projectId,
+                identity: `${this.clientConfig.developerId}.${this.clientConfig.serviceId}`,
+            }, this.clientConfig.secretKey!, {
+                expiresIn: "2 days"
+            })
+
+            return from([{
+                accessToken: token,
+                refreshToken: '',
+                isServiceToken: true
+            }])
         }
+
+        let now = this.getSafeNow()
+
+        var storedTokenData:RBSTokenData|undefined
+        if (!process) {
+            // Browser environment
+            let item = localStorage.getItem(RBS_TOKENS_KEY)
+            if(item) {
+                storedTokenData = JSON.parse(item)
+            }
+        } else {
+            // Node environment
+            storedTokenData = this.latestTokenData
+        }
+         
+        if (storedTokenData) {
+
+            const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
+            const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
+
+            // If token doesn't need refreshing return it.
+            if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
+                // Just return same token
+                return from([storedTokenData])
+            }
+
+            // If token needs refreshing, refresh it.
+            if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
+                // Refresh token
+                return api.get<RBSTokenData>('/public/auth-refresh', {
+                    refreshToken: storedTokenData.refreshToken
+                })
+            }
+        }
+
+        // Get anonym token
+        return api.get<RBSTokenData>('/public/anonymous-auth', {
+            projectId: this.clientConfig.projectId,
+            developerId: this.clientConfig.developerId,
+            serviceId: this.clientConfig.serviceId
+        })
     }
 
 
-    get client() {
-        return <IRBSClientInstance>{
-            main: this.clientRoot.serviceFactory<MainServiceTypes.IClient>(MainService),
-            product: this.clientRoot.serviceFactory<ProductServiceTypes.IClient>(ProductService)
+
+    getSafeNow = (): number => {
+        return Math.round((new Date()).getTime() / 1000)
+    }
+
+    setTokenData = (tokenData: RBSTokenData) => {
+        if (!process) {
+            // Browser environment
+            localStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
+        } else {
+            // Node environment
+            this.latestTokenData = tokenData
         }
     }
 
-    get server() {
-        return <IRBSServerInstance>{
-            main: this.serverRoot.serviceFactory<MainServiceTypes.IServer>(MainService),
-            product: this.serverRoot.serviceFactory<ProductServiceTypes.IServer>(ProductService)
+    getStoredTokenData = (): RBSTokenData | undefined => {
+
+        if (!process) {
+            // Browser environment
+            const storedTokenData = localStorage.getItem(RBS_TOKENS_KEY)
+            if (storedTokenData) {
+                return JSON.parse(storedTokenData)
+            } else {
+                return undefined
+            }
+        } else {
+            // Node environment
+            return this.latestTokenData
         }
     }
 
-    get admin() {
-        return <IRBSAdminInstance>{
-            main: this.adminRoot.serviceFactory<MainServiceTypes.IAdmin>(MainService),
-            product: this.adminRoot.serviceFactory<ProductServiceTypes.IAdmin>(ProductService)
-        }
+    // PUBLIC METHODS
+
+    public send = (action: RBSAction) => {
+        this.commandQueue.next(action)
+    }
+
+    public authenticateWithCustomToken = (token: string) => {
+        throw new Error('Not implemented yet')
     }
 
 }
