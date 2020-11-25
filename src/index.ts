@@ -4,6 +4,7 @@
 
 import { Subject, ObservableInput, Observable, from, zip } from 'rxjs';
 import { tap, concatMap } from 'rxjs/operators';
+import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import api from './api'
 import jwtDecode from "jwt-decode";
@@ -54,7 +55,7 @@ export default class RBS {
 
     private commandQueue = new Subject<RBSAction>();
 
-    
+    private customAuthQueue = new Subject<RBSAction>();
 
     clientConfig: RBSClientConfig
 
@@ -94,7 +95,29 @@ export default class RBS {
                 action.onSuccess(result)
             }
         })
-        
+
+
+
+        // Custom auth
+
+        let customAuthAction = this.customAuthQueue.asObservable()
+
+        let authCustomTokenResult = customAuthAction.pipe(
+            concatMap((action) => {
+                return api.get<RBSTokenData>('/public/auth', {
+                    customToken: action.data
+                })
+            }),
+            tap(tokenData => {
+                this.setTokenData(tokenData)
+            })
+        )
+
+        zip(customAuthAction, authCustomTokenResult).subscribe(([action, result]) => {
+            if(action.onSuccess) {
+                action.onSuccess(result)
+            }
+        })
     }
 
     getTokenAsObservable = (): Observable<RBSTokenData> => {
@@ -194,8 +217,19 @@ export default class RBS {
         this.commandQueue.next(action)
     }
 
-    public authenticateWithCustomToken = (token: string) => {
-        throw new Error('Not implemented yet')
+    public authenticateWithCustomToken = (token: string, onSuccess: SuccessCallBack, onError: ErrorCallBack) => {
+        
+        this.customAuthQueue.next({
+            action: 'customauth', // this string is not used here.
+            data: token,
+            onSuccess: (resp: any) => {
+                if(onSuccess) onSuccess(resp)
+            },
+            onError: (e: any) => {
+                if(onError) onError(e)
+            }
+        })
+
     }
 
 }
