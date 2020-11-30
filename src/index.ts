@@ -8,6 +8,9 @@ import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import api from './api'
 import jwtDecode from "jwt-decode";
+import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE } from './helpers'
+
+export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE };
 
 interface RbsJwtPayload {
     serviceId?: string
@@ -22,7 +25,6 @@ interface RBSTokenData {
     refreshToken: string
     isServiceToken: boolean
 }
-
 interface AuthWithCustomTokenResult {
     success?: string
     message?: string
@@ -48,6 +50,8 @@ interface RBSClientConfig {
 }
 
 const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
+
+
 
 export default class RBS {
 
@@ -213,8 +217,14 @@ export default class RBS {
 
     // PUBLIC METHODS
 
-    public send = (action: RBSAction) => {
-        this.commandQueue.next(action)
+    public send = (action: RBSAction) : Promise<any> => {
+        return new Promise((resolve, reject) => {
+            if(!action.onSuccess && !action.onError) {
+                action.onSuccess = resolve
+                action.onError = reject
+            }
+            this.commandQueue.next(action)
+        })
     }
 
     public authenticateWithCustomToken = (token: string, onSuccess: SuccessCallBack, onError: ErrorCallBack) => {

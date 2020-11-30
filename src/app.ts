@@ -1,5 +1,5 @@
 
-import RBS from './index'
+import RBS, { RESPONSE_TYPE } from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -45,20 +45,31 @@ const rbs = new RBS({
 // })
 
 const main = async () => {
-    let result = await send("rbs.businessuserauth.request.LOGIN", {
-        "email": "email@test.com",
-        "password": "password"
-    })
+    // let result = await send("rbs.businessuserauth.request.LOGIN",
+    //     {
+    //         "email": "email@test.com",
+    //         "password": "password"
+    //     }
+    // )
 
-    let authResult = await authenticateWithCustomToken(result[0].response.customToken)
+    // console.log("Result: ", result)
+
+    // let authResult = await authenticateWithCustomToken(result[0].response.customToken)
 
     // console.log(authResult)
 
-    let searchResult = await send("rbs.product.request.SEARCH", {
-        "searchTerm": "dove"
-    })
+    // await rbs.send({
+    //     action: "rbs.product.request.SEARCH",
+    //     data: {
+    //         "searchTerm": "dove"
+    //     }
+    // })
 
-    console.log(searchResult)
+    // let searchResult = await send("rbs.product.request.SEARCH", {
+    //     "searchTerm": "dove"
+    // })
+
+    
 }
 
 const send = (action: string, data: any): Promise<any> => {
@@ -80,15 +91,15 @@ const send = (action: string, data: any): Promise<any> => {
 
 }
 
-const authenticateWithCustomToken = (customToken:string): Promise<any> => {
-    return new Promise((resolve, reject) => {
-        rbs.authenticateWithCustomToken(customToken, (resp) => {
-            resolve(resp)
-        }, (e) => {
-            reject(e)
-        })
-    })
-}
+// const authenticateWithCustomToken = (customToken:string): Promise<any> => {
+//     return new Promise((resolve, reject) => {
+//         rbs.authenticateWithCustomToken(customToken, (resp) => {
+//             resolve(resp)
+//         }, (e) => {
+//             reject(e)
+//         })
+//     })
+// }
 
 main()
 
