@@ -143,8 +143,8 @@ export default class RBS {
 
         let now = this.getSafeNow()
 
-        var storedTokenData:RBSTokenData|undefined
-        if (!process) {
+        let storedTokenData:RBSTokenData|undefined
+        if (window.localStorage) {
             // Browser environment
             let item = localStorage.getItem(RBS_TOKENS_KEY)
             if(item) {
@@ -190,7 +190,7 @@ export default class RBS {
     }
 
     setTokenData = (tokenData: RBSTokenData) => {
-        if (!process) {
+        if (window.localStorage) {
             // Browser environment
             localStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
         } else {
@@ -201,7 +201,7 @@ export default class RBS {
 
     getStoredTokenData = (): RBSTokenData | undefined => {
 
-        if (!process) {
+        if (window.localStorage) {
             // Browser environment
             const storedTokenData = localStorage.getItem(RBS_TOKENS_KEY)
             if (storedTokenData) {
@@ -240,6 +240,16 @@ export default class RBS {
             }
         })
 
+    }
+
+    public signOut = () => {
+        if (window.localStorage) {
+            // Browser environment
+            localStorage.removeItem(RBS_TOKENS_KEY)
+        } else {
+            // Node environment
+            this.latestTokenData = undefined
+        }
     }
 
 }
