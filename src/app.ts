@@ -1,5 +1,4 @@
-
-import RBS, { RESPONSE_TYPE } from './index'
+import RBS, {RESPONSE_TYPE} from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -45,6 +44,23 @@ const rbs = new RBS({
 // })
 
 const main = async () => {
+
+    try {
+        let resp = await rbs.send({
+            action: 'rbs.email.request.SEND_EMAIL',
+            data: {
+                to: ['baran@rettermobile.com'],
+                subject: 'HUHUHUUU',
+                body: 'MERHABA!!'
+            }
+        })
+    } catch (err) {
+        console.log('err', err)
+    }
+
+
+
+
     // let result = await send("rbs.businessuserauth.request.LOGIN",
     //     {
     //         "email": "email@test.com",
@@ -69,7 +85,7 @@ const main = async () => {
     //     "searchTerm": "dove"
     // })
 
-    
+
 }
 
 const send = (action: string, data: any): Promise<any> => {

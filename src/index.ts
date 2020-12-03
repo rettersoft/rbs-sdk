@@ -3,7 +3,7 @@
 
 
 import { Subject, ObservableInput, Observable, from, zip } from 'rxjs';
-import { tap, concatMap } from 'rxjs/operators';
+import { tap, concatMap, materialize } from 'rxjs/operators';
 import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import api from './api'
@@ -66,6 +66,10 @@ export default class RBS {
     // Used in node env
     private latestTokenData?: RBSTokenData
 
+    isNode(): boolean {
+        return typeof window === 'undefined'
+    }
+
     constructor(config: RBSClientConfig) {
 
         this.clientConfig = config
@@ -91,12 +95,15 @@ export default class RBS {
                     action: action.action,
                     auth: tokenData.accessToken
                 })
-            })
+            }),
+            materialize()
         )
 
         zip(incomingAction, actionResult).subscribe(([action, result]) => {
-            if(action.onSuccess) {
-                action.onSuccess(result)
+            if(result.error && action.onError) {
+                action.onError(result.error)
+            } else if (result.hasValue && action.onSuccess) {
+                action.onSuccess(result.value)
             }
         })
 
@@ -144,15 +151,16 @@ export default class RBS {
         let now = this.getSafeNow()
 
         let storedTokenData:RBSTokenData|undefined
-        if (window.localStorage) {
+        if (this.isNode()) {
+            // Node environment
+            storedTokenData = this.latestTokenData
+        } else {
             // Browser environment
             let item = localStorage.getItem(RBS_TOKENS_KEY)
             if(item) {
                 storedTokenData = JSON.parse(item)
             }
-        } else {
-            // Node environment
-            storedTokenData = this.latestTokenData
+
         }
          
         if (storedTokenData) {
@@ -190,18 +198,21 @@ export default class RBS {
     }
 
     setTokenData = (tokenData: RBSTokenData) => {
-        if (window.localStorage) {
-            // Browser environment
-            localStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
-        } else {
+        if (this.isNode()) {
             // Node environment
             this.latestTokenData = tokenData
+        } else {
+            // Browser environment
+            localStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
         }
     }
 
     getStoredTokenData = (): RBSTokenData | undefined => {
 
-        if (window.localStorage) {
+        if (this.isNode()) {
+            // Node environment
+            return this.latestTokenData
+        } else {
             // Browser environment
             const storedTokenData = localStorage.getItem(RBS_TOKENS_KEY)
             if (storedTokenData) {
@@ -209,9 +220,6 @@ export default class RBS {
             } else {
                 return undefined
             }
-        } else {
-            // Node environment
-            return this.latestTokenData
         }
     }
 
@@ -243,12 +251,12 @@ export default class RBS {
     }
 
     public signOut = () => {
-        if (window.localStorage) {
-            // Browser environment
-            localStorage.removeItem(RBS_TOKENS_KEY)
-        } else {
+        if (this.isNode()) {
             // Node environment
             this.latestTokenData = undefined
+        } else {
+            // Browser environment
+            localStorage.removeItem(RBS_TOKENS_KEY)
         }
     }
 

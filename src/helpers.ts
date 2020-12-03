@@ -36,7 +36,7 @@ const getStatus = (responseType:RESPONSE_TYPE) : number => {
     }
 }
 
-interface RbsServiceResponse {
+export interface RbsServiceResponse {
     responseType:RESPONSE_TYPE
     serviceErrorCode?: number
     message?: any
