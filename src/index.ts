@@ -1,16 +1,12 @@
-
-
-
-
-import { Subject, ObservableInput, Observable, from, zip } from 'rxjs';
-import { tap, concatMap, materialize } from 'rxjs/operators';
+import {Subject, ObservableInput, Observable, from, zip, combineLatest} from 'rxjs';
+import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom} from 'rxjs/operators';
 import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import api from './api'
 import jwtDecode from "jwt-decode";
-import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE } from './helpers'
+import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE} from './helpers'
 
-export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE };
+export {ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE};
 
 interface RbsJwtPayload {
     serviceId?: string
@@ -25,6 +21,7 @@ interface RBSTokenData {
     refreshToken: string
     isServiceToken: boolean
 }
+
 interface AuthWithCustomTokenResult {
     success?: string
     message?: string
@@ -35,6 +32,7 @@ interface AuthWithCustomTokenResult {
 type AuthWithCustomTokenCallBack = (resp: any) => any;
 type SuccessCallBack = (resp: any) => any;
 type ErrorCallBack = (e: any) => any;
+
 interface RBSAction {
     action?: string
     data?: any
@@ -50,7 +48,6 @@ interface RBSClientConfig {
 }
 
 const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
-
 
 
 export default class RBS {
@@ -78,35 +75,66 @@ export default class RBS {
 
         let getTokenPipe = incomingAction.pipe(
             concatMap((e, i): ObservableInput<any> => {
-                console.log("HERE 1")
                 return this.getTokenAsObservable()
             }),
             tap(tokenData => {
-                console.log(tokenData)
                 this.setTokenData(tokenData)
             })
         )
 
         let actionResult = zip(incomingAction, getTokenPipe).pipe(
             concatMap(([action, tokenData]) => {
-                console.log("HERE 2 action", action.action, "access token", tokenData.accessToken.substr(tokenData.accessToken.length - 5))
                 let endpoint = tokenData.isServiceToken ? '/service/action' : '/user/action'
                 return api.post(endpoint, action.data, {
                     action: action.action,
                     auth: tokenData.accessToken
-                })
+                }).pipe(materialize())
             }),
-            materialize()
+            share()
         )
 
-        zip(incomingAction, actionResult).subscribe(([action, result]) => {
-            if(result.error && action.onError) {
-                action.onError(result.error)
-            } else if (result.hasValue && action.onSuccess) {
-                action.onSuccess(result.value)
-            }
-        })
+        let actionResultSuccess = actionResult.pipe(
+            filter((r) => r.hasValue && r.kind === "N")
+        )
 
+        let actionResultFail = actionResult.pipe(
+            filter((r) => {
+                return r.hasValue === false && r.kind === "E"
+            })
+        )
+
+        actionResultSuccess
+            .pipe(
+                tap(e => {
+                    // console.log("DEBUG SUCCESS", e)
+                }),
+                withLatestFrom(incomingAction, (result, action) => ({
+                    action, result
+                }))
+            )
+            .subscribe(({action, result}) => {
+                if (action.onSuccess) {
+                    action.onSuccess(result.value)
+                }
+            })
+
+
+        actionResultFail
+            .pipe(
+                tap(e => {
+                    // console.log("DEBUG FAIL", e)
+                }),
+                withLatestFrom(incomingAction, (result, action) => ({
+                    action, result
+                }))
+            )
+
+
+            .subscribe(({action, result}) => {
+                if (action.onError) {
+                    action.onError(result.error)
+                }
+            })
 
 
         // Custom auth
@@ -120,18 +148,19 @@ export default class RBS {
                 })
             }),
             tap(tokenData => {
-                this.setTokenData(tokenData)
+                if (tokenData)
+                    this.setTokenData(tokenData)
             })
         )
 
         zip(customAuthAction, authCustomTokenResult).subscribe(([action, result]) => {
-            if(action.onSuccess) {
+            if (action.onSuccess) {
                 action.onSuccess(result)
             }
         })
     }
 
-    getTokenAsObservable = (): Observable<RBSTokenData> => {
+    getTokenAsObservable = (): Observable<RBSTokenData | void> => {
 
         if (this.clientConfig.secretKey && this.clientConfig.serviceId) {
             let token = jwt.sign({
@@ -150,19 +179,19 @@ export default class RBS {
 
         let now = this.getSafeNow()
 
-        let storedTokenData:RBSTokenData|undefined
+        let storedTokenData: RBSTokenData | undefined
         if (this.isNode()) {
             // Node environment
             storedTokenData = this.latestTokenData
         } else {
             // Browser environment
             let item = localStorage.getItem(RBS_TOKENS_KEY)
-            if(item) {
+            if (item) {
                 storedTokenData = JSON.parse(item)
             }
 
         }
-         
+
         if (storedTokenData) {
 
             const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
@@ -190,7 +219,6 @@ export default class RBS {
             serviceId: this.clientConfig.serviceId
         })
     }
-
 
 
     getSafeNow = (): number => {
@@ -225,9 +253,10 @@ export default class RBS {
 
     // PUBLIC METHODS
 
-    public send = (action: RBSAction) : Promise<any> => {
+    public send = (action: RBSAction): Promise<any> => {
+        console.log("send called with", action)
         return new Promise((resolve, reject) => {
-            if(!action.onSuccess && !action.onError) {
+            if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
                 action.onError = reject
             }
@@ -236,15 +265,15 @@ export default class RBS {
     }
 
     public authenticateWithCustomToken = (token: string, onSuccess: SuccessCallBack, onError: ErrorCallBack) => {
-        
+
         this.customAuthQueue.next({
             action: 'customauth', // this string is not used here.
             data: token,
             onSuccess: (resp: any) => {
-                if(onSuccess) onSuccess(resp)
+                if (onSuccess) onSuccess(resp)
             },
             onError: (e: any) => {
-                if(onError) onError(e)
+                if (onError) onError(e)
             }
         })
 

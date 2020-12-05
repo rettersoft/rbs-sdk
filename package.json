@@ -1,6 +1,6 @@
 {
   "name": "@rettersoft/rbs-sdk",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Client sdk for retter business services",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,6 +29,7 @@
     "@types/jsonwebtoken": "^8.5.0",
     "@types/node": "^12.12.62",
     "axios": "^0.19.2",
+    "axios-observable": "^1.1.3",
     "https-proxy-agent": "^5.0.0",
     "jsonwebtoken": "^8.5.1",
     "jwt-decode": "^3.1.2",
