@@ -1,10 +1,12 @@
-import {Subject, ObservableInput, Observable, from, zip, combineLatest} from 'rxjs';
-import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom} from 'rxjs/operators';
-import axios from 'axios'
+import {Subject, ObservableInput, Observable, from, zip, combineLatest, defer} from 'rxjs';
+import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap} from 'rxjs/operators';
+import axios, {AxiosRequestConfig} from 'axios'
 import jwt from 'jsonwebtoken'
 import api from './api'
 import jwtDecode from "jwt-decode";
 import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE} from './helpers'
+import initializeAxios from "./axiosSetup";
+
 
 export {ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE};
 
@@ -33,11 +35,29 @@ type AuthWithCustomTokenCallBack = (resp: any) => any;
 type SuccessCallBack = (resp: any) => any;
 type ErrorCallBack = (e: any) => any;
 
+export const axiosRequestConfiguration: AxiosRequestConfig = {
+    baseURL: 'https://core-test.rettermobile.com',
+    responseType: 'json',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+
+};
+
+const axiosInstance = initializeAxios(axiosRequestConfiguration);
+
 interface RBSAction {
     action?: string
     data?: any
     onSuccess?: SuccessCallBack
     onError?: ErrorCallBack
+}
+
+interface RBSActionWrapper {
+    action?: RBSAction
+    tokenData?: RBSTokenData
+    response?: any
+    responseError?: Error
 }
 
 interface RBSClientConfig {
@@ -73,68 +93,42 @@ export default class RBS {
 
         let incomingAction = this.commandQueue.asObservable()
 
-        let getTokenPipe = incomingAction.pipe(
-            concatMap((e, i): ObservableInput<any> => {
-                return this.getTokenAsObservable()
+        let actionResult = incomingAction.pipe(
+            concatMap(async action => {
+                let actionWrapper = {
+                    action
+                }
+                return await this.getActionWithTokenData(actionWrapper)
             }),
-            tap(tokenData => {
-                this.setTokenData(tokenData)
-            })
-        )
-
-        let actionResult = zip(incomingAction, getTokenPipe).pipe(
-            concatMap(([action, tokenData]) => {
-                let endpoint = tokenData.isServiceToken ? '/service/action' : '/user/action'
-                return api.post(endpoint, action.data, {
-                    action: action.action,
-                    auth: tokenData.accessToken
-                }).pipe(materialize())
+            filter(actionWrapper => actionWrapper.tokenData != null),
+            tap(actionWrapper => {
+               this.setTokenData(actionWrapper.tokenData!)
+            }),
+            mergeMap((ev) => {
+                let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
+                return defer(() => this.post(endpoint, ev)).pipe(materialize())
             }),
             share()
         )
 
-        let actionResultSuccess = actionResult.pipe(
+        actionResult.pipe(
             filter((r) => r.hasValue && r.kind === "N")
-        )
+        ).subscribe(e => {
+            if (e.value?.action?.onSuccess) {
+                e.value.action.onSuccess(e.value?.response)
+            }
+        })
 
-        let actionResultFail = actionResult.pipe(
-            filter((r) => {
-                return r.hasValue === false && r.kind === "E"
-            })
-        )
-
-        actionResultSuccess
-            .pipe(
-                tap(e => {
-                    // console.log("DEBUG SUCCESS", e)
-                }),
-                withLatestFrom(incomingAction, (result, action) => ({
-                    action, result
-                }))
-            )
-            .subscribe(({action, result}) => {
-                if (action.onSuccess) {
-                    action.onSuccess(result.value)
+        actionResult.pipe(
+            filter((r) => r.hasValue === false && r.kind === "E")
+        ).subscribe(e => {
+            if (e.error) {
+                let actionWrapper: RBSActionWrapper = e.error
+                if (actionWrapper.action?.onError) {
+                    actionWrapper.action?.onError(actionWrapper.responseError)
                 }
-            })
-
-
-        actionResultFail
-            .pipe(
-                tap(e => {
-                    // console.log("DEBUG FAIL", e)
-                }),
-                withLatestFrom(incomingAction, (result, action) => ({
-                    action, result
-                }))
-            )
-
-
-            .subscribe(({action, result}) => {
-                if (action.onError) {
-                    action.onError(result.error)
-                }
-            })
+            }
+        })
 
 
         // Custom auth
@@ -160,66 +154,114 @@ export default class RBS {
         })
     }
 
-    getTokenAsObservable = (): Observable<RBSTokenData | void> => {
 
-        if (this.clientConfig.secretKey && this.clientConfig.serviceId) {
-            let token = jwt.sign({
-                projectId: this.clientConfig.projectId,
-                identity: `${this.clientConfig.developerId}.${this.clientConfig.serviceId}`,
-            }, this.clientConfig.secretKey!, {
-                expiresIn: "2 days"
-            })
 
-            return from([{
-                accessToken: token,
-                refreshToken: '',
-                isServiceToken: true
-            }])
-        }
+    getActionWithTokenData = (actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
 
-        let now = this.getSafeNow()
+        return new Promise(async (resolve, reject) => {
 
-        let storedTokenData: RBSTokenData | undefined
-        if (this.isNode()) {
-            // Node environment
-            storedTokenData = this.latestTokenData
-        } else {
-            // Browser environment
-            let item = localStorage.getItem(RBS_TOKENS_KEY)
-            if (item) {
-                storedTokenData = JSON.parse(item)
-            }
+            if (this.clientConfig.secretKey && this.clientConfig.serviceId) {
 
-        }
-
-        if (storedTokenData) {
-
-            const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
-            const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
-
-            // If token doesn't need refreshing return it.
-            if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
-                // Just return same token
-                return from([storedTokenData])
-            }
-
-            // If token needs refreshing, refresh it.
-            if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
-                // Refresh token
-                return api.get<RBSTokenData>('/public/auth-refresh', {
-                    refreshToken: storedTokenData.refreshToken
+                let token = jwt.sign({
+                    projectId: this.clientConfig.projectId,
+                    identity: `${this.clientConfig.developerId}.${this.clientConfig.serviceId}`,
+                }, this.clientConfig.secretKey!, {
+                    expiresIn: "2 days"
                 })
-            }
-        }
 
-        // Get anonym token
-        return api.get<RBSTokenData>('/public/anonymous-auth', {
-            projectId: this.clientConfig.projectId,
-            developerId: this.clientConfig.developerId,
-            serviceId: this.clientConfig.serviceId
+                actionWrapper.tokenData = {
+                    accessToken: token,
+                    refreshToken: '',
+                    isServiceToken: true
+                }
+
+            } else {
+                let now = this.getSafeNow()
+
+                let storedTokenData: RBSTokenData | undefined
+                if (this.isNode()) {
+                    // Node environment
+                    storedTokenData = this.latestTokenData
+                } else {
+                    // Browser environment
+                    let item = localStorage.getItem(RBS_TOKENS_KEY)
+                    if (item) {
+                        storedTokenData = JSON.parse(item)
+                    }
+                }
+
+                if (storedTokenData) {
+
+                    const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
+                    const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
+
+                    // If token doesn't need refreshing return it.
+                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
+                        // Just return same token
+                        actionWrapper.tokenData = storedTokenData
+                    }
+
+                    // If token needs refreshing, refresh it.
+                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
+                        // Refresh token
+
+                        actionWrapper.tokenData = await api.getP<RBSTokenData>('/public/auth-refresh', {
+                            refreshToken: storedTokenData.refreshToken
+                        })
+                    }
+                } else {
+                    // Get anonym token
+
+                    actionWrapper.tokenData = await api.getP<RBSTokenData>('/public/anonymous-auth', {
+                        projectId: this.clientConfig.projectId,
+                        developerId: this.clientConfig.developerId,
+                        serviceId: this.clientConfig.serviceId
+                    })
+                }
+
+
+            }
+
+            resolve(actionWrapper)
+
+        })
+
+
+    }
+
+    post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+        return new Promise((resolve, reject) => {
+            axiosInstance.post(url, actionWrapper.action?.data, {
+                params: {
+                    auth: actionWrapper.tokenData?.accessToken,
+                    action: actionWrapper.action?.action
+                }
+            }).then((resp) => {
+                actionWrapper.response = resp.data
+                resolve(actionWrapper)
+            }).catch((err) => {
+                actionWrapper.responseError = err
+                reject(actionWrapper)
+            })
         })
     }
 
+    get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+        return new Promise((resolve, reject) => {
+            axiosInstance.get(url, {
+                params: {
+                    auth: actionWrapper.tokenData?.accessToken,
+                    action: actionWrapper.action?.action
+                }
+            }).then((resp) => {
+                actionWrapper.response = resp
+                resolve(actionWrapper)
+            }).catch((err) => {
+                actionWrapper.responseError = err
+                reject(actionWrapper)
+            })
+        })
+    }
 
     getSafeNow = (): number => {
         return Math.round((new Date()).getTime() / 1000)
@@ -254,7 +296,6 @@ export default class RBS {
     // PUBLIC METHODS
 
     public send = (action: RBSAction): Promise<any> => {
-        console.log("send called with", action)
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
