@@ -48,7 +48,7 @@ export const createResponse = (response:RbsServiceResponse) : any => {
         statusCode: getStatus(response.responseType),
         headers,
         body: JSON.stringify({ 
-            message: response.message ? JSON.stringify(response.message) : JSON.stringify(response.responseType),
+            message: response.message ? response.message : JSON.stringify(response.responseType),
             serviceErrorCode: response.serviceErrorCode ? response.serviceErrorCode : 0,
             data: response.data
         })

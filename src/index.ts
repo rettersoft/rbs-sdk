@@ -1,8 +1,7 @@
-import {Subject, ObservableInput, Observable, from, zip, combineLatest, defer} from 'rxjs';
+import {Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject} from 'rxjs';
 import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap} from 'rxjs/operators';
-import axios, {AxiosRequestConfig} from 'axios'
+import {AxiosInstance, AxiosRequestConfig} from 'axios'
 import jwt from 'jsonwebtoken'
-import api from './api'
 import jwtDecode from "jwt-decode";
 import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE} from './helpers'
 import initializeAxios from "./axiosSetup";
@@ -14,6 +13,9 @@ interface RbsJwtPayload {
     serviceId?: string
     projectId?: string
     clientId?: string
+    userId?: string
+    anonymous?: boolean
+    identity?: string
     iat?: number
     exp?: number
 }
@@ -24,27 +26,8 @@ interface RBSTokenData {
     isServiceToken: boolean
 }
 
-interface AuthWithCustomTokenResult {
-    success?: string
-    message?: string
-    uid?: string
-    tokenData?: RBSTokenData
-}
-
-type AuthWithCustomTokenCallBack = (resp: any) => any;
 type SuccessCallBack = (resp: any) => any;
 type ErrorCallBack = (e: any) => any;
-
-export const axiosRequestConfiguration: AxiosRequestConfig = {
-    baseURL: 'https://core-test.rettermobile.com',
-    responseType: 'json',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-
-};
-
-const axiosInstance = initializeAxios(axiosRequestConfiguration);
 
 interface RBSAction {
     action?: string
@@ -65,6 +48,21 @@ interface RBSClientConfig {
     secretKey?: string
     developerId?: string
     serviceId?: string
+    rbsUrl?: string
+}
+
+enum RBSAuthStatus {
+    SIGNED_IN = "SIGNED_IN",
+    SIGNED_IN_ANONYM = "SIGNED_IN_ANONYM",
+    SIGNED_OUT = "SIGNED_OUT",
+    AUTH_FAILED = "AUTH_FAILED"
+}
+
+interface RBSAuthChangedEvent {
+    authStatus:RBSAuthStatus
+    identity?:string
+    uid?:string
+    message?:string
 }
 
 const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
@@ -87,7 +85,25 @@ export default class RBS {
         return typeof window === 'undefined'
     }
 
+    private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
+
+    public get authStatus() : Observable<RBSAuthChangedEvent> {
+        return this.authStatusSubject.asObservable()
+    }
+
+    private axiosInstance: AxiosInstance
+
     constructor(config: RBSClientConfig) {
+
+        const axiosRequestConfiguration: AxiosRequestConfig = {
+            baseURL: config.rbsUrl ? config.rbsUrl : 'https://core.rettermobile.com',
+            responseType: 'json',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        this.axiosInstance = initializeAxios(axiosRequestConfiguration);
 
         this.clientConfig = config
 
@@ -100,9 +116,12 @@ export default class RBS {
                 }
                 return await this.getActionWithTokenData(actionWrapper)
             }),
+            tap(actionWrapper => {
+                this.fireAuthStatus(actionWrapper.tokenData)
+            }),
             filter(actionWrapper => actionWrapper.tokenData != null),
             tap(actionWrapper => {
-               this.setTokenData(actionWrapper.tokenData!)
+                this.setTokenData(actionWrapper.tokenData!)
             }),
             mergeMap((ev) => {
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
@@ -133,25 +152,90 @@ export default class RBS {
 
         // Custom auth
 
-        let customAuthAction = this.customAuthQueue.asObservable()
 
-        let authCustomTokenResult = customAuthAction.pipe(
+        let customAuthResult = this.customAuthQueue.pipe(
             concatMap((action) => {
-                return api.get<RBSTokenData>('/public/auth', {
-                    customToken: action.data
-                })
+
+                let actionWrapper:RBSActionWrapper = {
+                    action
+                }
+
+                return defer(() => this.get('/public/auth', { customToken: action.data }, actionWrapper)).pipe(materialize())
             }),
-            tap(tokenData => {
-                if (tokenData)
-                    this.setTokenData(tokenData)
-            })
+
+            share()
         )
 
-        zip(customAuthAction, authCustomTokenResult).subscribe(([action, result]) => {
-            if (action.onSuccess) {
-                action.onSuccess(result)
+        customAuthResult.pipe(
+            filter((r) => r.hasValue && r.kind === "N"),
+            map(e => {
+                let actionWrapper = e.value!
+                actionWrapper.tokenData = {
+                    accessToken: actionWrapper.response.data.accessToken,
+                    refreshToken: actionWrapper.response.data.refreshToken,
+                    isServiceToken: false
+                }
+                return actionWrapper
+            }),
+            tap(actionWrapper => {
+                if(actionWrapper.tokenData) {
+                    this.setTokenData(actionWrapper.tokenData)
+                }
+                this.fireAuthStatus(actionWrapper.tokenData)
+            })
+        ).subscribe(actionWrapper => {
+            let authEvent = this.getAuthChangedEvent(this.getStoredTokenData())
+            if(actionWrapper.action!.onSuccess) {
+                actionWrapper.action!.onSuccess(authEvent)
             }
         })
+
+        customAuthResult.pipe(
+            filter((r) => r.hasValue === false && r.kind === "E")
+        ).subscribe(e => {
+            if (e.error) {
+                let actionWrapper: RBSActionWrapper = e.error
+                if (actionWrapper.action?.onError) {
+                    actionWrapper.action?.onError({
+                        authStatus: RBSAuthStatus.AUTH_FAILED,
+                        message: actionWrapper.responseError
+                    })
+                }
+            }
+        })
+
+        this.fireAuthStatus(this.getStoredTokenData())
+    }
+
+
+    getAuthChangedEvent = (tokenData:RBSTokenData|undefined) : RBSAuthChangedEvent => {
+        if(!tokenData) {
+            return {
+                authStatus: RBSAuthStatus.SIGNED_OUT
+            }
+        } else {
+
+            const data:RbsJwtPayload = jwtDecode<RbsJwtPayload>(tokenData!.accessToken)
+
+            if(data.anonymous) {
+                return {
+                    authStatus: RBSAuthStatus.SIGNED_IN_ANONYM,
+                    uid: data.userId,
+                    identity: data.identity,
+                }
+            } else {
+
+                return {
+                    authStatus: RBSAuthStatus.SIGNED_IN,
+                    uid: data.userId,
+                    identity: data.identity,
+                }
+            }
+        }
+    }
+
+    fireAuthStatus = (tokenData:RBSTokenData|undefined) => {
+        this.authStatusSubject.next(this.getAuthChangedEvent(tokenData))
     }
 
 
@@ -205,14 +289,14 @@ export default class RBS {
                     if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
                         // Refresh token
 
-                        actionWrapper.tokenData = await api.getP<RBSTokenData>('/public/auth-refresh', {
+                        actionWrapper.tokenData = await this.getP<RBSTokenData>('/public/auth-refresh', {
                             refreshToken: storedTokenData.refreshToken
                         })
                     }
                 } else {
                     // Get anonym token
 
-                    actionWrapper.tokenData = await api.getP<RBSTokenData>('/public/anonymous-auth', {
+                    actionWrapper.tokenData = await this.getP<RBSTokenData>('/public/anonymous-auth', {
                         projectId: this.clientConfig.projectId,
                         developerId: this.clientConfig.developerId,
                         serviceId: this.clientConfig.serviceId
@@ -229,9 +313,13 @@ export default class RBS {
 
     }
 
+    getP = async <T>(url: string, queryParams?: object): Promise<T> => {
+        return (await this.axiosInstance.get<T>(url, { params: queryParams })).data
+    }
+
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
-            axiosInstance.post(url, actionWrapper.action?.data, {
+            this.axiosInstance.post(url, actionWrapper.action?.data, {
                 params: {
                     auth: actionWrapper.tokenData?.accessToken,
                     action: actionWrapper.action?.action
@@ -246,13 +334,10 @@ export default class RBS {
         })
     }
 
-    get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+    get = (url: string, params:any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
-            axiosInstance.get(url, {
-                params: {
-                    auth: actionWrapper.tokenData?.accessToken,
-                    action: actionWrapper.action?.action
-                }
+            this.axiosInstance.get(url, {
+                params
             }).then((resp) => {
                 actionWrapper.response = resp
                 resolve(actionWrapper)
@@ -305,18 +390,20 @@ export default class RBS {
         })
     }
 
-    public authenticateWithCustomToken = (token: string, onSuccess: SuccessCallBack, onError: ErrorCallBack) => {
+    public authenticateWithCustomToken = (token: string) : Promise<RBSAuthChangedEvent> => {
 
-        this.customAuthQueue.next({
-            action: 'customauth', // this string is not used here.
-            data: token,
-            onSuccess: (resp: any) => {
-                if (onSuccess) onSuccess(resp)
-            },
-            onError: (e: any) => {
-                if (onError) onError(e)
+        return new Promise((resolve, reject) => {
+
+            let action = {
+                action: 'customauth', // this string is not used here.
+                data: token,
+                onSuccess: resolve,
+                onError: reject
             }
+
+            this.customAuthQueue.next(action)
         })
+
 
     }
 
@@ -328,6 +415,8 @@ export default class RBS {
             // Browser environment
             localStorage.removeItem(RBS_TOKENS_KEY)
         }
+
+        this.fireAuthStatus(this.getStoredTokenData())
     }
 
 }

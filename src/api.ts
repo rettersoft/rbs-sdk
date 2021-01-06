@@ -13,12 +13,6 @@ export const axiosRequestConfiguration: AxiosRequestConfig = {
 
 };
 
-// const instance = Axios.create({
-//     baseURL: 'https://core-test.rettermobile.com/',
-//     timeout: 10000,
-//     headers: {'Content-Type': 'application/json'}
-// });
-
 const axiosInstance = initializeAxios(axiosRequestConfiguration);
 
 const get = <T>(url: string, queryParams?: object): Observable<T> => {
