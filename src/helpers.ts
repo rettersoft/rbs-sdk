@@ -1,12 +1,12 @@
 
 export interface ActionEvent {
-    action:string
-    actionType:string
-    projectId:string
-    identity:string
-    userId:string
-    serviceId:string
-    actionPayload:any
+    action: string
+    actionType: string
+    projectId: string
+    identity: string
+    userId: string
+    serviceId: string
+    actionPayload: any
 }
 
 export const headers: any = {
@@ -17,7 +17,7 @@ export const headers: any = {
 }
 
 export enum RESPONSE_TYPE {
-    SUCCESS, 
+    SUCCESS,
     METHOD_NOT_ALLOWED,
     BAD_REQUEST,
     AUTH_FAILED,
@@ -25,8 +25,8 @@ export enum RESPONSE_TYPE {
     INTERNAL_SERVER_ERROR
 }
 
-const getStatus = (responseType:RESPONSE_TYPE) : number => {
-    switch(responseType) {
+const getStatus = (responseType: RESPONSE_TYPE): number => {
+    switch (responseType) {
         case RESPONSE_TYPE.SUCCESS: return 200
         case RESPONSE_TYPE.BAD_REQUEST: return 400
         case RESPONSE_TYPE.AUTH_FAILED: return 401
@@ -37,18 +37,18 @@ const getStatus = (responseType:RESPONSE_TYPE) : number => {
 }
 
 export interface RbsServiceResponse {
-    responseType:RESPONSE_TYPE
+    responseType: RESPONSE_TYPE
     serviceErrorCode?: number
     message?: any
-    data?:any
-    errors?:any
+    data?: any
+    errors?: any
 }
 
-export const createResponse = (response:RbsServiceResponse) : any => {
+export const createResponse = (response: RbsServiceResponse): any => {
     return {
         statusCode: getStatus(response.responseType),
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             message: response.message ? response.message : JSON.stringify(response.responseType),
             serviceErrorCode: response.serviceErrorCode ? response.serviceErrorCode : 0,
             data: response.data,
@@ -66,7 +66,23 @@ export const parseActionEvent = (event: any): ActionEvent => {
     let identity = event.headers["X-Rbs-Identity"] || event.headers["x-rbs-identity"]
     let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
-    let actionPayload = JSON.parse(body ? body : '{}')
+    
+    let isBase64Encoded = false 
+    if(event.headers['isBase64Encoded']) {
+        isBase64Encoded = Boolean(event.headers['isBase64Encoded'])
+    }
+    if(event.headers['isbase64encoded']) {
+        isBase64Encoded = Boolean(event.headers['isbase64encoded'])
+    }
+    
+    let bodyStr:string = ""
+    if(isBase64Encoded) {
+        bodyStr = Buffer.from(body, 'base64').toString('utf-8')
+    } else {
+        bodyStr = body
+    }
+    
+    let actionPayload = JSON.parse(bodyStr)
 
     return {
         action,
@@ -79,8 +95,7 @@ export const parseActionEvent = (event: any): ActionEvent => {
     }
 }
 
-export interface ValidationError
-{
+export interface ValidationError {
     target?: Object; // Object that was validated.
     property?: string; // Object's property that haven't pass validation.
     value?: any; // Value that haven't pass a validation.
@@ -90,8 +105,8 @@ export interface ValidationError
     children?: ValidationError[]; // Contains all nested validation errors of the property
 }
 
-export const parseClassValidatorErrors = (errors:Array<ValidationError>) : Array<string> => {
-    let root:ValidationError = {
+export const parseClassValidatorErrors = (errors: Array<ValidationError>): Array<string> => {
+    let root: ValidationError = {
         target: {},
         property: '',
         value: '',
@@ -101,18 +116,18 @@ export const parseClassValidatorErrors = (errors:Array<ValidationError>) : Array
     return parseClassValidatorErrorObject('root', root)
 }
 
-const parseClassValidatorErrorObject = (path:string, validationError:ValidationError) : Array<string> => {
-    let errStrings:string[] = []
-    
-    if(validationError.constraints) {
-        let keys = Object.keys(validationError.constraints) 
-        for(let k of keys) {
+const parseClassValidatorErrorObject = (path: string, validationError: ValidationError): Array<string> => {
+    let errStrings: string[] = []
+
+    if (validationError.constraints) {
+        let keys = Object.keys(validationError.constraints)
+        for (let k of keys) {
             errStrings.push(path + '.' + String(validationError.constraints[k]))
         }
     }
     path = path + (validationError.property ? '.' + validationError.property : '')
-    if(validationError.children && validationError.children.length > 0) {
-        for(let c of validationError.children) {
+    if (validationError.children && validationError.children.length > 0) {
+        for (let c of validationError.children) {
             errStrings = [...errStrings, ...parseClassValidatorErrorObject(path, c)]
         }
     }
