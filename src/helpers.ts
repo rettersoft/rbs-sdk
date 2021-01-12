@@ -68,11 +68,8 @@ export const parseActionEvent = (event: any): ActionEvent => {
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     
     let isBase64Encoded = false 
-    if(event.headers['isBase64Encoded']) {
-        isBase64Encoded = Boolean(event.headers['isBase64Encoded'])
-    }
-    if(event.headers['isbase64encoded']) {
-        isBase64Encoded = Boolean(event.headers['isbase64encoded'])
+    if(event['isBase64Encoded']) {
+        isBase64Encoded = Boolean(event['isBase64Encoded'])
     }
     
     let bodyStr:string = ""
