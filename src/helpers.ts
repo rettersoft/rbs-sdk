@@ -41,6 +41,7 @@ export interface RbsServiceResponse {
     serviceErrorCode?: number
     message?: any
     data?:any
+    errors?:any
 }
 
 export const createResponse = (response:RbsServiceResponse) : any => {
@@ -50,7 +51,8 @@ export const createResponse = (response:RbsServiceResponse) : any => {
         body: JSON.stringify({ 
             message: response.message ? response.message : JSON.stringify(response.responseType),
             serviceErrorCode: response.serviceErrorCode ? response.serviceErrorCode : 0,
-            data: response.data
+            data: response.data,
+            errors: response.errors
         })
     }
 }
@@ -58,12 +60,12 @@ export const createResponse = (response:RbsServiceResponse) : any => {
 export const parseActionEvent = (event: any): ActionEvent => {
     const { body } = event
 
-    let action = event.headers["X-Rbs-Action"]
-    let actionType = event.headers["X-Rbs-ActionType"]
-    let projectId = event.headers["X-Rbs-ProjectId"]
-    let identity = event.headers["X-Rbs-Identity"]
-    let userId = event.headers["X-Rbs-UserId"]
-    let serviceId = event.headers["X-Rbs-ServiceId"]
+    let action = event.headers["X-Rbs-Action"] || event.headers["x-rbs-action"]
+    let actionType = event.headers["X-Rbs-ActionType"] || event.headers["x-rbs-actiontype"]
+    let projectId = event.headers["X-Rbs-ProjectId"] || event.headers["x-rbs-projectid"]
+    let identity = event.headers["X-Rbs-Identity"] || event.headers["x-rbs-identity"]
+    let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
+    let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     let actionPayload = JSON.parse(body ? body : '{}')
 
     return {
@@ -76,3 +78,46 @@ export const parseActionEvent = (event: any): ActionEvent => {
         userId,
     }
 }
+
+export interface ValidationError
+{
+    target?: Object; // Object that was validated.
+    property?: string; // Object's property that haven't pass validation.
+    value?: any; // Value that haven't pass a validation.
+    constraints?: { // Constraints that failed validation with error messages.
+        [type: string]: string;
+    };
+    children?: ValidationError[]; // Contains all nested validation errors of the property
+}
+
+export const parseClassValidatorErrors = (errors:Array<ValidationError>) : Array<string> => {
+    let root:ValidationError = {
+        target: {},
+        property: '',
+        value: '',
+        children: errors
+    }
+
+    return parseClassValidatorErrorObject('root', root)
+}
+
+const parseClassValidatorErrorObject = (path:string, validationError:ValidationError) : Array<string> => {
+    let errStrings:string[] = []
+    
+    if(validationError.constraints) {
+        let keys = Object.keys(validationError.constraints) 
+        for(let k of keys) {
+            errStrings.push(path + '.' + String(validationError.constraints[k]))
+        }
+    }
+    path = path + (validationError.property ? '.' + validationError.property : '')
+    if(validationError.children && validationError.children.length > 0) {
+        for(let c of validationError.children) {
+            errStrings = [...errStrings, ...parseClassValidatorErrorObject(path, c)]
+        }
+    }
+    return errStrings
+}
+
+
+

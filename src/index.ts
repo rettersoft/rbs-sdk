@@ -3,11 +3,11 @@ import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom, ma
 import {AxiosInstance, AxiosRequestConfig} from 'axios'
 import jwt from 'jsonwebtoken'
 import jwtDecode from "jwt-decode";
-import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE} from './helpers'
+import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError} from './helpers'
 import initializeAxios from "./axiosSetup";
 
 
-export {ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE};
+export {ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError};
 
 interface RbsJwtPayload {
     serviceId?: string

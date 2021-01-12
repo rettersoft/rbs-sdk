@@ -7,3 +7,4 @@ temp/
 **/*.d.ts
 **/*.js
 **/*.js.map
+src/baran.ts
