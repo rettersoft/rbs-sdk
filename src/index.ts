@@ -96,7 +96,7 @@ export default class RBS {
     constructor(config: RBSClientConfig) {
 
         const axiosRequestConfiguration: AxiosRequestConfig = {
-            baseURL: config.rbsUrl ? config.rbsUrl : 'https://core.rettermobile.com',
+            baseURL: config.rbsUrl ? config.rbsUrl : 'https://core.rtbs.io',
             responseType: 'json',
             headers: {
                 'Content-Type': 'application/json',
