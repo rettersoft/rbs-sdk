@@ -74,7 +74,9 @@ export const parseActionEvent = (event: any): ActionEvent => {
     
     let bodyStr:string = ""
     if(isBase64Encoded) {
-        bodyStr = Buffer.from(body, 'base64').toString('utf-8')
+        if (body && body.length) {
+            bodyStr = Buffer.from(body, 'base64').toString('utf-8')
+        }
     } else {
         bodyStr = body
     }
@@ -130,6 +132,3 @@ const parseClassValidatorErrorObject = (path: string, validationError: Validatio
     }
     return errStrings
 }
-
-
-
