@@ -72,11 +72,13 @@ export const parseActionEvent = (event: any): ActionEvent => {
         isBase64Encoded = Boolean(event['isBase64Encoded'])
     }
     
-    let bodyStr:string = ""
-    if(isBase64Encoded) {
-        bodyStr = Buffer.from(body, 'base64').toString('utf-8')
-    } else {
-        bodyStr = body
+    let bodyStr:string = "{}"
+    if (body && body.length) {
+        if (isBase64Encoded) {
+            bodyStr = Buffer.from(body, 'base64').toString('utf-8')
+        } else {
+            bodyStr = body
+        }
     }
     
     let actionPayload = JSON.parse(bodyStr)
@@ -130,6 +132,3 @@ const parseClassValidatorErrorObject = (path: string, validationError: Validatio
     }
     return errStrings
 }
-
-
-
