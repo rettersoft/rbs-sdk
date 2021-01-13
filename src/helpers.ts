@@ -72,13 +72,13 @@ export const parseActionEvent = (event: any): ActionEvent => {
         isBase64Encoded = Boolean(event['isBase64Encoded'])
     }
     
-    let bodyStr:string = ""
-    if(isBase64Encoded) {
-        if (body && body.length) {
+    let bodyStr:string = "{}"
+    if (body && body.length) {
+        if (isBase64Encoded) {
             bodyStr = Buffer.from(body, 'base64').toString('utf-8')
+        } else {
+            bodyStr = body
         }
-    } else {
-        bodyStr = body
     }
     
     let actionPayload = JSON.parse(bodyStr)
