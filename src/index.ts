@@ -1,13 +1,13 @@
-import {Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject} from 'rxjs';
-import {tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap} from 'rxjs/operators';
-import {AxiosInstance, AxiosRequestConfig} from 'axios'
+import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject } from 'rxjs';
+import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap } from 'rxjs/operators';
+import { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwt from 'jsonwebtoken'
 import jwtDecode from "jwt-decode";
-import {createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError} from './helpers'
+import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
 import initializeAxios from "./axiosSetup";
 
 
-export {ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError};
+export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
 interface RbsJwtPayload {
     serviceId?: string
@@ -31,7 +31,9 @@ type ErrorCallBack = (e: any) => any;
 
 interface RBSAction {
     action?: string
+    targetServiceId?: string
     data?: any
+
     onSuccess?: SuccessCallBack
     onError?: ErrorCallBack
 }
@@ -59,10 +61,10 @@ enum RBSAuthStatus {
 }
 
 interface RBSAuthChangedEvent {
-    authStatus:RBSAuthStatus
-    identity?:string
-    uid?:string
-    message?:string
+    authStatus: RBSAuthStatus
+    identity?: string
+    uid?: string
+    message?: string
 }
 
 const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
@@ -87,7 +89,7 @@ export default class RBS {
 
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
 
-    public get authStatus() : Observable<RBSAuthChangedEvent> {
+    public get authStatus(): Observable<RBSAuthChangedEvent> {
         return this.authStatusSubject.asObservable()
     }
 
@@ -156,7 +158,7 @@ export default class RBS {
         let customAuthResult = this.customAuthQueue.pipe(
             concatMap((action) => {
 
-                let actionWrapper:RBSActionWrapper = {
+                let actionWrapper: RBSActionWrapper = {
                     action
                 }
 
@@ -178,14 +180,14 @@ export default class RBS {
                 return actionWrapper
             }),
             tap(actionWrapper => {
-                if(actionWrapper.tokenData) {
+                if (actionWrapper.tokenData) {
                     this.setTokenData(actionWrapper.tokenData)
                 }
                 this.fireAuthStatus(actionWrapper.tokenData)
             })
         ).subscribe(actionWrapper => {
             let authEvent = this.getAuthChangedEvent(this.getStoredTokenData())
-            if(actionWrapper.action!.onSuccess) {
+            if (actionWrapper.action!.onSuccess) {
                 actionWrapper.action!.onSuccess(authEvent)
             }
         })
@@ -208,16 +210,16 @@ export default class RBS {
     }
 
 
-    getAuthChangedEvent = (tokenData:RBSTokenData|undefined) : RBSAuthChangedEvent => {
-        if(!tokenData) {
+    getAuthChangedEvent = (tokenData: RBSTokenData | undefined): RBSAuthChangedEvent => {
+        if (!tokenData) {
             return {
                 authStatus: RBSAuthStatus.SIGNED_OUT
             }
         } else {
 
-            const data:RbsJwtPayload = jwtDecode<RbsJwtPayload>(tokenData!.accessToken)
+            const data: RbsJwtPayload = jwtDecode<RbsJwtPayload>(tokenData!.accessToken)
 
-            if(data.anonymous) {
+            if (data.anonymous) {
                 return {
                     authStatus: RBSAuthStatus.SIGNED_IN_ANONYM,
                     uid: data.userId,
@@ -234,7 +236,7 @@ export default class RBS {
         }
     }
 
-    fireAuthStatus = (tokenData:RBSTokenData|undefined) => {
+    fireAuthStatus = (tokenData: RBSTokenData | undefined) => {
         this.authStatusSubject.next(this.getAuthChangedEvent(tokenData))
     }
 
@@ -319,22 +321,27 @@ export default class RBS {
 
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
-            this.axiosInstance.post(url, actionWrapper.action?.data, {
-                params: {
-                    auth: actionWrapper.tokenData?.accessToken,
-                    action: actionWrapper.action?.action
-                }
-            }).then((resp) => {
-                actionWrapper.response = resp.data
-                resolve(actionWrapper)
-            }).catch((err) => {
-                actionWrapper.responseError = err
-                reject(actionWrapper)
-            })
+            let params:any = {
+                auth: actionWrapper.tokenData?.accessToken,
+                action: actionWrapper.action?.action
+            }
+            if (actionWrapper.action?.targetServiceId) {
+                params.targetServiceId = actionWrapper.action?.targetServiceId
+            }
+            this
+                .axiosInstance
+                .post(url, actionWrapper.action?.data, { params })
+                .then((resp) => {
+                    actionWrapper.response = resp.data
+                    resolve(actionWrapper)
+                }).catch((err) => {
+                    actionWrapper.responseError = err
+                    reject(actionWrapper)
+                })
         })
     }
 
-    get = (url: string, params:any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+    get = (url: string, params: any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             this.axiosInstance.get(url, {
                 params
@@ -390,7 +397,7 @@ export default class RBS {
         })
     }
 
-    public authenticateWithCustomToken = (token: string) : Promise<RBSAuthChangedEvent> => {
+    public authenticateWithCustomToken = (token: string): Promise<RBSAuthChangedEvent> => {
 
         return new Promise((resolve, reject) => {
 
