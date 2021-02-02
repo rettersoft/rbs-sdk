@@ -9,7 +9,7 @@ import initializeAxios from "./axiosSetup";
 
 export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
-interface RbsJwtPayload {
+export interface RbsJwtPayload {
     serviceId?: string
     projectId?: string
     clientId?: string

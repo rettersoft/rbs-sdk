@@ -1,3 +1,6 @@
+import { fdatasync } from "fs";
+import jwtDecode from "jwt-decode";
+import { RbsJwtPayload } from "src";
 
 export interface ActionEvent {
     action: string
@@ -18,9 +21,11 @@ export const headers: any = {
 
 export enum RESPONSE_TYPE {
     SUCCESS,
+    NO_CONTENT,
     METHOD_NOT_ALLOWED,
     BAD_REQUEST,
     AUTH_FAILED,
+    PERMISSION_DENIED,
     NOT_FOUND,
     INTERNAL_SERVER_ERROR
 }
@@ -28,8 +33,10 @@ export enum RESPONSE_TYPE {
 const getStatus = (responseType: RESPONSE_TYPE): number => {
     switch (responseType) {
         case RESPONSE_TYPE.SUCCESS: return 200
+        case RESPONSE_TYPE.NO_CONTENT: return 204
         case RESPONSE_TYPE.BAD_REQUEST: return 400
         case RESPONSE_TYPE.AUTH_FAILED: return 401
+        case RESPONSE_TYPE.PERMISSION_DENIED: return 403
         case RESPONSE_TYPE.NOT_FOUND: return 404
         case RESPONSE_TYPE.METHOD_NOT_ALLOWED: return 405
         case RESPONSE_TYPE.INTERNAL_SERVER_ERROR: return 500
@@ -38,27 +45,33 @@ const getStatus = (responseType: RESPONSE_TYPE): number => {
 
 export interface RbsServiceResponse {
     responseType: RESPONSE_TYPE
-    serviceErrorCode?: number
+    errorCode?: string
     message?: any
     data?: any
-    errors?: any
+    errors?: string[]
 }
 
 export const createResponse = (response: RbsServiceResponse): any => {
+
+    //message: response.message ? response.message : JSON.stringify(response.responseType),
+
     return {
         statusCode: getStatus(response.responseType),
-        headers,
+        headers: {
+            ...headers,
+            ['x-rbs-errorcode']: response.errorCode
+        },
         body: JSON.stringify({
-            message: response.message ? response.message : JSON.stringify(response.responseType),
-            serviceErrorCode: response.serviceErrorCode ? response.serviceErrorCode : 0,
-            data: response.data,
-            errors: response.errors
+            errors: response.errors,
+            data: response.data
         })
     }
 }
 
-export const parseActionEvent = (event: any): ActionEvent => {
+export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent => {
     const { body } = event
+
+    const data: RbsJwtPayload = jwtDecode<RbsJwtPayload>(serviceSecret)
 
     let action = event.headers["X-Rbs-Action"] || event.headers["x-rbs-action"]
     let actionType = event.headers["X-Rbs-ActionType"] || event.headers["x-rbs-actiontype"]
@@ -67,6 +80,8 @@ export const parseActionEvent = (event: any): ActionEvent => {
     let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     
+    if(data.projectId !== projectId) throw new Error('Auth failed. Invalid JWT Token')
+
     let isBase64Encoded = false 
     if(event['isBase64Encoded']) {
         isBase64Encoded = Boolean(event['isBase64Encoded'])
