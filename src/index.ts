@@ -32,6 +32,7 @@ type ErrorCallBack = (e: any) => any;
 interface RBSAction {
     action?: string
     targetServiceId?: string
+    relatedUserId?: string
     data?: any
 
     onSuccess?: SuccessCallBack
@@ -327,6 +328,9 @@ export default class RBS {
             }
             if (actionWrapper.action?.targetServiceId) {
                 params.targetServiceId = actionWrapper.action?.targetServiceId
+            }
+            if (actionWrapper.action?.relatedUserId) {
+                params.relatedUserId = actionWrapper.action?.relatedUserId
             }
             this
                 .axiosInstance
