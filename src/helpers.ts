@@ -1,5 +1,5 @@
 import { fdatasync } from "fs";
-import jwtDecode from "jwt-decode";
+import jwt from 'jsonwebtoken'
 import { RbsJwtPayload } from "src";
 
 export interface ActionEvent {
@@ -71,8 +71,7 @@ export const createResponse = (response: RbsServiceResponse): any => {
 export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent => {
     const { body } = event
 
-    const data: RbsJwtPayload = jwtDecode<RbsJwtPayload>(serviceSecret)
-
+    let token = event.headers["Authorization"] || event.headers["authorization"]
     let action = event.headers["X-Rbs-Action"] || event.headers["x-rbs-action"]
     let actionType = event.headers["X-Rbs-ActionType"] || event.headers["x-rbs-actiontype"]
     let projectId = event.headers["X-Rbs-ProjectId"] || event.headers["x-rbs-projectid"]
@@ -80,7 +79,9 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     
-    if(data.projectId !== projectId) throw new Error('Auth failed. Invalid JWT Token')
+    const decoded:any = jwt.verify(token, serviceSecret)
+
+    if(decoded.projectId !== projectId || decoded.identity !== identity) throw new Error('Auth failed. Invalid JWT Token')
 
     let isBase64Encoded = false 
     if(event['isBase64Encoded']) {
