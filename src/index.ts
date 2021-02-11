@@ -128,7 +128,14 @@ export default class RBS {
             }),
             mergeMap((ev) => {
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
-                return defer(() => this.post(endpoint, ev)).pipe(materialize())
+                const action = ev.action!.action!
+                const actionType = action.split('.')[2]
+                if(actionType === 'get') {
+                    return defer(() => this.get(endpoint, ev)).pipe(materialize())
+                } else {
+                    return defer(() => this.post(endpoint, ev)).pipe(materialize())
+                }
+                
             }),
             share()
         )
@@ -163,7 +170,7 @@ export default class RBS {
                     action
                 }
 
-                return defer(() => this.get('/public/auth', { customToken: action.data }, actionWrapper)).pipe(materialize())
+                return defer(() => this.getPlain('/public/auth', { customToken: action.data }, actionWrapper)).pipe(materialize())
             }),
 
             share()
@@ -345,7 +352,37 @@ export default class RBS {
         })
     }
 
-    get = (url: string, params: any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+    get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
+        return new Promise((resolve, reject) => {
+            let params:any = {
+                auth: actionWrapper.tokenData?.accessToken,
+                action: actionWrapper.action?.action
+            }
+            const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
+            params.data = Buffer.from(JSON.stringify(data)).toString('base64')
+
+            if (actionWrapper.action?.targetServiceId) {
+                params.targetServiceId = actionWrapper.action?.targetServiceId
+            }
+            if (actionWrapper.action?.relatedUserId) {
+                params.relatedUserId = actionWrapper.action?.relatedUserId
+            }
+            this.axiosInstance.get(url, {
+                params,
+                headers: {
+                    ['Content-Type']: 'text/plain'
+                }
+            }).then((resp) => {
+                actionWrapper.response = resp
+                resolve(actionWrapper)
+            }).catch((err) => {
+                actionWrapper.responseError = err
+                reject(actionWrapper)
+            })
+        })
+    }
+
+    getPlain = (url: string, params: any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             this.axiosInstance.get(url, {
                 params

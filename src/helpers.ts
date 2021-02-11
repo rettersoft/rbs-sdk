@@ -49,17 +49,48 @@ export interface RbsServiceResponse {
     message?: any
     data?: any
     errors?: string[]
+    cacheForDuration?: Duration
+}
+
+export class Duration {
+    private _seconds:number = 0
+    static seconds = (amount: number): Duration => {
+        let d = new Duration()
+        d._seconds = amount
+        return d
+    }
+    static minutes = (amount: number): Duration => {
+        let d = new Duration()
+        d._seconds = amount * 60
+        return d
+    }
+    static hours = (amount: number): Duration => {
+        let d = new Duration()
+        d._seconds = amount * 3600
+        return d
+    }
+    static days = (amount: number): Duration => {
+        let d = new Duration()
+        d._seconds = amount * 3600 * 24
+        return d
+    }
+    getSeconds = () : number => {
+        return this._seconds
+    }
 }
 
 export const createResponse = (response: RbsServiceResponse): any => {
 
     //message: response.message ? response.message : JSON.stringify(response.responseType),
+    
+    
 
     return {
         statusCode: getStatus(response.responseType),
         headers: {
             ...headers,
-            ['x-rbs-errorcode']: response.errorCode
+            ['x-rbs-errorcode']: response.errorCode,
+            ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0'
         },
         body: JSON.stringify({
             errors: response.errors,
