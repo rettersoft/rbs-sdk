@@ -21,9 +21,12 @@ import RBS, {RESPONSE_TYPE} from './index'
 //     }
 // })
 
-
 const rbs = new RBS({
-    projectId: "933a51e1c87a9ccc181d21fca91c2aad",
+    projectId: "3b7eea955170401685ec7ac0187ef787",
+    rbsUrl: 'https://core-test.rettermobile.com',
+    // developerId: 'rbs',
+    // serviceId: 'pim',
+    // secretKey: 'awesomesecretkey'
 })
 
 // rbs.send({
@@ -47,13 +50,13 @@ const main = async () => {
 
     try {
         let resp = await rbs.send({
-            action: 'rbs.email.request.SEND_EMAIL',
+            action: 'rbs.address.get.COUNTRIES',
+
             data: {
-                to: ['baran@rettermobile.com'],
-                subject: 'HUHUHUUU',
-                body: 'MERHABA!!'
+                something: 1
             }
         })
+        console.log(resp)
     } catch (err) {
         console.log('err', err)
     }

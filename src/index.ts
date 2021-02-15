@@ -114,7 +114,7 @@ export default class RBS {
 
         let actionResult = incomingAction.pipe(
             concatMap(async action => {
-                let actionWrapper = {
+                let actionWrapper:RBSActionWrapper = {
                     action
                 }
                 return await this.getActionWithTokenData(actionWrapper)
@@ -130,6 +130,7 @@ export default class RBS {
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
                 const action = ev.action!.action!
                 const actionType = action.split('.')[2]
+                endpoint = `${endpoint}/${this.clientConfig.projectId}/${action}`
                 if(actionType === 'get') {
                     return defer(() => this.get(endpoint, ev)).pipe(materialize())
                 } else {
@@ -247,7 +248,7 @@ export default class RBS {
     fireAuthStatus = (tokenData: RBSTokenData | undefined) => {
         this.authStatusSubject.next(this.getAuthChangedEvent(tokenData))
     }
-
+ 
 
 
     getActionWithTokenData = (actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
@@ -331,7 +332,6 @@ export default class RBS {
         return new Promise((resolve, reject) => {
             let params:any = {
                 auth: actionWrapper.tokenData?.accessToken,
-                action: actionWrapper.action?.action
             }
             if (actionWrapper.action?.targetServiceId) {
                 params.targetServiceId = actionWrapper.action?.targetServiceId
@@ -356,17 +356,20 @@ export default class RBS {
         return new Promise((resolve, reject) => {
             let params:any = {
                 auth: actionWrapper.tokenData?.accessToken,
-                action: actionWrapper.action?.action
             }
-            const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
-            params.data = Buffer.from(JSON.stringify(data)).toString('base64')
 
+            if(actionWrapper.action?.data) {
+                const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
+                params.data = Buffer.from(JSON.stringify(data)).toString('base64')
+            }
+            
             if (actionWrapper.action?.targetServiceId) {
                 params.targetServiceId = actionWrapper.action?.targetServiceId
             }
             if (actionWrapper.action?.relatedUserId) {
                 params.relatedUserId = actionWrapper.action?.relatedUserId
             }
+            // console.log(params)
             this.axiosInstance.get(url, {
                 params,
                 headers: {
