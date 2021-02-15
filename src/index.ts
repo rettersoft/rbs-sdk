@@ -9,6 +9,17 @@ import initializeAxios from "./axiosSetup";
 
 export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
+export interface ServiceResponse {
+    errorCode: string
+    serviceId: string
+    status: number
+    errors: string[]
+    response: any
+    durationInMilliseconds: number
+    executionDurationInMilliseconds: number
+    headers: { [key: string]: string }
+}
+
 export interface RbsJwtPayload {
     serviceId?: string
     projectId?: string
@@ -376,7 +387,7 @@ export default class RBS {
                     ['Content-Type']: 'text/plain'
                 }
             }).then((resp) => {
-                actionWrapper.response = resp
+                actionWrapper.response = resp.data
                 resolve(actionWrapper)
             }).catch((err) => {
                 actionWrapper.responseError = err
@@ -431,7 +442,7 @@ export default class RBS {
 
     // PUBLIC METHODS
 
-    public send = (action: RBSAction): Promise<any> => {
+    public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
