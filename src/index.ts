@@ -45,6 +45,7 @@ interface RBSAction {
     targetServiceId?: string
     relatedUserId?: string
     data?: any
+    headers?: { [key: string]: string }
 
     onSuccess?: SuccessCallBack
     onError?: ErrorCallBack
@@ -352,7 +353,10 @@ export default class RBS {
             }
             this
                 .axiosInstance
-                .post(url, actionWrapper.action?.data, { params })
+                .post(url, actionWrapper.action?.data, { 
+                    params, 
+                    headers: actionWrapper.action?.headers 
+                })
                 .then((resp) => {
                     actionWrapper.response = resp.data
                     resolve(actionWrapper)
@@ -384,7 +388,8 @@ export default class RBS {
             this.axiosInstance.get(url, {
                 params,
                 headers: {
-                    ['Content-Type']: 'text/plain'
+                    ['Content-Type']: 'text/plain',
+                    ...actionWrapper.action?.headers
                 }
             }).then((resp) => {
                 actionWrapper.response = resp.data
@@ -443,6 +448,7 @@ export default class RBS {
     // PUBLIC METHODS
 
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
+        
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
@@ -459,6 +465,7 @@ export default class RBS {
             let action = {
                 action: 'customauth', // this string is not used here.
                 data: token,
+                
                 onSuccess: resolve,
                 onError: reject
             }

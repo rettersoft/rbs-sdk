@@ -10,6 +10,8 @@ export interface ActionEvent {
     userId: string
     serviceId: string
     actionPayload: any
+    processExecutionId: string
+    processId: string
 }
 
 export const headers: any = {
@@ -109,7 +111,12 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let identity = event.headers["X-Rbs-Identity"] || event.headers["x-rbs-identity"]
     let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
+    let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
+    let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
     
+    // X-Rbs-ProcessExecutionId
+    // X-Rbs-ProcessId
+
     const decoded:any = jwt.verify(token, serviceSecret)
 
     if(decoded.projectId !== projectId || decoded.identity !== identity) throw new Error('Auth failed. Invalid JWT Token')
@@ -138,6 +145,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         projectId,
         serviceId,
         userId,
+        processId,
+        processExecutionId
     }
 }
 
