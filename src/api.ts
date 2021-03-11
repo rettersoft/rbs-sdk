@@ -4,25 +4,27 @@ import { map, materialize } from 'rxjs/operators'
 // import Axios from 'axios-observable';
 import { AxiosRequestConfig } from 'axios';
 
-export const axiosRequestConfiguration: AxiosRequestConfig = {
-    baseURL: 'https://core-test.rettermobile.com',
-    responseType: 'json',
-    headers: {
-        'Content-Type': 'application/json',
-    },
 
-};
 
-const axiosInstance = initializeAxios(axiosRequestConfiguration);
+// export const axiosRequestConfiguration: AxiosRequestConfig = {
+//     baseURL: 'https://core.rtbs.io',
+//     responseType: 'json',
+//     headers: {
+//         'Content-Type': 'application/json',
+//     },
 
-const get = <T>(url: string, queryParams?: object): Observable<T> => {
-    return defer(()=> axiosInstance.get<T>(url, { params: queryParams }))
-        .pipe(map(result => result.data));
-};
+// };
 
-const getP = async <T>(url: string, queryParams?: object): Promise<T> => {
-    return (await axiosInstance.get<T>(url, { params: queryParams })).data
-};
+// const axiosInstance = initializeAxios(axiosRequestConfiguration);
+
+// const get = <T>(url: string, queryParams?: object): Observable<T> => {
+//     return defer(()=> axiosInstance.get<T>(url, { params: queryParams }))
+//         .pipe(map(result => result.data));
+// };
+
+// const getP = async <T>(url: string, queryParams?: object): Promise<T> => {
+//     return (await axiosInstance.get<T>(url, { params: queryParams })).data
+// };
 
 // const post = <T>(url: string, body: object, queryParams?: object): Observable<T | void> => {
 //     return instance.post<T>(url, body, {
@@ -62,4 +64,4 @@ const getP = async <T>(url: string, queryParams?: object): Promise<T> => {
 //     );
 // };
 
-export default {  get, getP };
+// export default {  get, getP };

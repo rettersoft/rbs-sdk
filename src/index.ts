@@ -31,7 +31,7 @@ export interface RbsJwtPayload {
     exp?: number
 }
 
-interface RBSTokenData {
+export interface RBSTokenData {
     accessToken: string
     refreshToken: string
     isServiceToken: boolean
@@ -58,12 +58,31 @@ interface RBSActionWrapper {
     responseError?: Error
 }
 
+
+
+interface RbsRegionConfiguration {
+    regionId?: RbsRegion,
+    getUrl: string,
+    url: string
+}
+
+enum RbsRegion {
+    euWest1
+}
+
+const RbsRegions: Array<RbsRegionConfiguration> = [{
+    regionId: RbsRegion.euWest1,
+    getUrl: 'https://core.rtbs.io',
+    url: 'https://core-internal.rtbs.io'
+}]
+
 interface RBSClientConfig {
     projectId: string
     secretKey?: string
     developerId?: string
     serviceId?: string
-    rbsUrl?: string
+    region?: RbsRegion
+    regionConfiguration?: RbsRegionConfiguration
 }
 
 export enum RBSAuthStatus {
@@ -106,12 +125,41 @@ export default class RBS {
         return this.authStatusSubject.asObservable()
     }
 
+    private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
+        let endpoint = actionWrapper.tokenData!.isServiceToken ? '/service/action' : '/user/action'
+        const action = actionWrapper.action!.action!
+        const actionType = action.split('.')[2]
+        endpoint = `${endpoint}/${this.clientConfig.projectId}/${action}`
+        return endpoint
+    }
+
+    private getBaseUrl = (action: string): string => {
+
+        let region:RbsRegionConfiguration|undefined = undefined
+
+        if(this.clientConfig.regionConfiguration) {
+            region = this.clientConfig.regionConfiguration
+        } else {
+            region = RbsRegions.find(r => r.regionId === this.clientConfig.region)
+            if (!region) {
+                region = RbsRegions.find(r => r.regionId === RbsRegion.euWest1)
+            }
+        }
+
+        if(!region) throw new Error('Invalid rbs region')
+
+        if (action.includes('.get.')) {
+            return region.getUrl
+        } else {
+            return region.url
+        }
+    }
+
     private axiosInstance: AxiosInstance
 
     constructor(config: RBSClientConfig) {
 
         const axiosRequestConfiguration: AxiosRequestConfig = {
-            baseURL: config.rbsUrl ? config.rbsUrl : 'https://core-internal.rtbs.io',
             responseType: 'json',
             headers: {
                 'Content-Type': 'application/json',
@@ -122,11 +170,13 @@ export default class RBS {
 
         this.clientConfig = config
 
+        if (!this.clientConfig.region) this.clientConfig.region = RbsRegion.euWest1
+
         let incomingAction = this.commandQueue.asObservable()
 
         let actionResult = incomingAction.pipe(
             concatMap(async action => {
-                let actionWrapper:RBSActionWrapper = {
+                let actionWrapper: RBSActionWrapper = {
                     action
                 }
                 return await this.getActionWithTokenData(actionWrapper)
@@ -139,16 +189,22 @@ export default class RBS {
                 this.setTokenData(actionWrapper.tokenData!)
             }),
             mergeMap((ev) => {
+
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
                 const action = ev.action!.action!
                 const actionType = action.split('.')[2]
                 endpoint = `${endpoint}/${this.clientConfig.projectId}/${action}`
-                if(actionType === 'get') {
+
+                endpoint = this.getBaseUrl(action) + this.getServiceEndpoint(ev)
+
+                if (actionType === 'get') {
+                    // console.log('running get request to', endpoint)
                     return defer(() => this.get(endpoint, ev)).pipe(materialize())
                 } else {
+                    // console.log('running post request to', endpoint)
                     return defer(() => this.post(endpoint, ev)).pipe(materialize())
                 }
-                
+
             }),
             share()
         )
@@ -260,8 +316,21 @@ export default class RBS {
     fireAuthStatus = (tokenData: RBSTokenData | undefined) => {
         this.authStatusSubject.next(this.getAuthChangedEvent(tokenData))
     }
- 
 
+    _getStoredTokenData = (): RBSTokenData | undefined => {
+        let storedTokenData: RBSTokenData | undefined
+        if (this.isNode()) {
+            // Node environment
+            storedTokenData = this.latestTokenData
+        } else {
+            // Browser environment
+            let item = localStorage.getItem(RBS_TOKENS_KEY)
+            if (item) {
+                storedTokenData = JSON.parse(item)
+            }
+        }
+        return storedTokenData
+    }
 
     getActionWithTokenData = (actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
 
@@ -285,17 +354,7 @@ export default class RBS {
             } else {
                 let now = this.getSafeNow()
 
-                let storedTokenData: RBSTokenData | undefined
-                if (this.isNode()) {
-                    // Node environment
-                    storedTokenData = this.latestTokenData
-                } else {
-                    // Browser environment
-                    let item = localStorage.getItem(RBS_TOKENS_KEY)
-                    if (item) {
-                        storedTokenData = JSON.parse(item)
-                    }
-                }
+                let storedTokenData: RBSTokenData | undefined = this._getStoredTokenData()
 
                 if (storedTokenData) {
 
@@ -312,14 +371,21 @@ export default class RBS {
                     if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
                         // Refresh token
 
-                        actionWrapper.tokenData = await this.getP<RBSTokenData>('/public/auth-refresh', {
+                        actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
                             refreshToken: storedTokenData.refreshToken
                         })
                     }
                 } else {
                     // Get anonym token
 
-                    actionWrapper.tokenData = await this.getP<RBSTokenData>('/public/anonymous-auth', {
+                    const url = this.getBaseUrl('') + '/public/anonymous-auth'
+                    // console.log('url', url)
+                    // console.log('params', {
+                    //     projectId: this.clientConfig.projectId,
+                    //     developerId: this.clientConfig.developerId,
+                    //     serviceId: this.clientConfig.serviceId
+                    // })
+                    actionWrapper.tokenData = await this.getP<RBSTokenData>(url, {
                         projectId: this.clientConfig.projectId,
                         developerId: this.clientConfig.developerId,
                         serviceId: this.clientConfig.serviceId
@@ -342,7 +408,7 @@ export default class RBS {
 
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
-            let params:any = {
+            let params: any = {
                 auth: actionWrapper.tokenData?.accessToken,
             }
             if (actionWrapper.action?.targetServiceId) {
@@ -353,9 +419,9 @@ export default class RBS {
             }
             this
                 .axiosInstance
-                .post(url, actionWrapper.action?.data, { 
-                    params, 
-                    headers: actionWrapper.action?.headers 
+                .post(url, actionWrapper.action?.data, {
+                    params,
+                    headers: actionWrapper.action?.headers
                 })
                 .then((resp) => {
                     actionWrapper.response = resp.data
@@ -367,23 +433,26 @@ export default class RBS {
         })
     }
 
+    getParams = (actionWrapper: RBSActionWrapper): any => {
+        let params: any = {
+            auth: actionWrapper.tokenData?.accessToken,
+        }
+        if (actionWrapper.action?.data) {
+            const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
+            params.data = Buffer.from(JSON.stringify(data)).toString('base64')
+        }
+        if (actionWrapper.action?.targetServiceId) {
+            params.targetServiceId = actionWrapper.action?.targetServiceId
+        }
+        if (actionWrapper.action?.relatedUserId) {
+            params.relatedUserId = actionWrapper.action?.relatedUserId
+        }
+        return params
+    }
+
     get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
-            let params:any = {
-                auth: actionWrapper.tokenData?.accessToken,
-            }
-
-            if(actionWrapper.action?.data) {
-                const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
-                params.data = Buffer.from(JSON.stringify(data)).toString('base64')
-            }
-            
-            if (actionWrapper.action?.targetServiceId) {
-                params.targetServiceId = actionWrapper.action?.targetServiceId
-            }
-            if (actionWrapper.action?.relatedUserId) {
-                params.relatedUserId = actionWrapper.action?.relatedUserId
-            }
+            let params = this.getParams(actionWrapper)
             // console.log(params)
             this.axiosInstance.get(url, {
                 params,
@@ -447,8 +516,23 @@ export default class RBS {
 
     // PUBLIC METHODS
 
+    public generateGetActionUrl = async (action: RBSAction): Promise<string> => {
+        let actionWrapper: RBSActionWrapper = {
+            action
+        }
+        const actionWithToken = await this.getActionWithTokenData(actionWrapper)
+        let params = this.getParams(actionWithToken)
+        let url = this.getBaseUrl(action.action!) + this.getServiceEndpoint(actionWithToken) + '?'
+
+        for (let k of Object.keys(params)) {
+            url = `${url}${k}=${params[k]}&`
+        }
+
+        return url
+    }
+
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
-        
+
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
@@ -465,7 +549,7 @@ export default class RBS {
             let action = {
                 action: 'customauth', // this string is not used here.
                 data: token,
-                
+
                 onSuccess: resolve,
                 onError: reject
             }

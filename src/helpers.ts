@@ -2,6 +2,9 @@ import { fdatasync } from "fs";
 import jwt from 'jsonwebtoken'
 import { RbsJwtPayload } from "src";
 
+
+
+
 export interface ActionEvent {
     action: string
     actionType: string
@@ -52,6 +55,7 @@ export interface RbsServiceResponse {
     data?: any
     errors?: string[]
     cacheForDuration?: Duration
+    headers?: { [key: string]: string }
 }
 
 export class Duration {
@@ -85,14 +89,13 @@ export const createResponse = (response: RbsServiceResponse): any => {
 
     //message: response.message ? response.message : JSON.stringify(response.responseType),
     
-    
-
     return {
         statusCode: getStatus(response.responseType),
         headers: {
             ...headers,
             ['x-rbs-errorcode']: response.errorCode,
-            ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0'
+            ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0',
+            ...response.headers
         },
         body: JSON.stringify({
             errors: response.errors,

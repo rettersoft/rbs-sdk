@@ -22,12 +22,21 @@ import RBS, {RESPONSE_TYPE} from './index'
 // })
 
 const rbs = new RBS({
+
     projectId: "3b7eea955170401685ec7ac0187ef787",
-    rbsUrl: 'https://core-test.rettermobile.com',
+    regionConfiguration: {
+        getUrl: 'https://core-test.rettermobile.com',
+        url: 'https://core-internal-beta.rtbs.io'
+    }
+
+    // rbsUrl: 'https://core-test.rettermobile.com',
     // developerId: 'rbs',
     // serviceId: 'pim',
     // secretKey: 'awesomesecretkey'
+
 })
+
+
 
 // rbs.send({
 //     action: 'rbs.businessuserauth.request.LOGIN',
@@ -48,7 +57,17 @@ const rbs = new RBS({
 
 const main = async () => {
 
+    // const url = await rbs.generateGetActionUrl({
+    //     action: "rbs.some.get.SOMETHING",
+    //     data: {
+    //         hey: 1
+    //     }
+    // })
+    
+    // console.log('url', url)
+
     try {
+
         let resp = await rbs.send({
             action: 'rbs.address.get.COUNTRIES',
 
@@ -56,7 +75,8 @@ const main = async () => {
                 something: 1
             }
         })
-        console.log(resp)
+        console.log(JSON.stringify(resp, null, 4))
+
     } catch (err) {
         console.log('err', err)
     }
