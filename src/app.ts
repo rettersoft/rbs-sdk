@@ -1,4 +1,4 @@
-import RBS, {RESPONSE_TYPE} from './index'
+import RBS, {RESPONSE_TYPE, RbsRegion} from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -24,19 +24,17 @@ import RBS, {RESPONSE_TYPE} from './index'
 const rbs = new RBS({
 
     projectId: "3b7eea955170401685ec7ac0187ef787",
-    regionConfiguration: {
-        getUrl: 'https://core-test.rettermobile.com',
-        url: 'https://core-internal-beta.rtbs.io'
-    }
+    
+    // regionConfiguration: {
+    //     getUrl: 'https://core-test.rettermobile.com',
+    //     url: 'https://core-internal-beta.rtbs.io'
+    // }
+})
 
     // rbsUrl: 'https://core-test.rettermobile.com',
     // developerId: 'rbs',
     // serviceId: 'pim',
     // secretKey: 'awesomesecretkey'
-
-})
-
-
 
 // rbs.send({
 //     action: 'rbs.businessuserauth.request.LOGIN',

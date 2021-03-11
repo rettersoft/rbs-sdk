@@ -60,20 +60,24 @@ interface RBSActionWrapper {
 
 
 
-interface RbsRegionConfiguration {
+export interface RbsRegionConfiguration {
     regionId?: RbsRegion,
     getUrl: string,
     url: string
 }
 
-enum RbsRegion {
-    euWest1
+export enum RbsRegion {
+    euWest1, euWest1Beta
 }
 
 const RbsRegions: Array<RbsRegionConfiguration> = [{
     regionId: RbsRegion.euWest1,
     getUrl: 'https://core.rtbs.io',
     url: 'https://core-internal.rtbs.io'
+}, {
+    regionId: RbsRegion.euWest1Beta,
+    getUrl: 'https://core-test.rettermobile.com',
+    url: 'https://core-internal-beta.rtbs.io'
 }]
 
 interface RBSClientConfig {
