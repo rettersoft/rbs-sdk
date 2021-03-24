@@ -239,11 +239,16 @@ export default class RBS {
         let customAuthResult = this.customAuthQueue.pipe(
             concatMap((action) => {
 
+                // console.log('HEYHAT')
+
                 let actionWrapper: RBSActionWrapper = {
                     action
                 }
 
-                return defer(() => this.getPlain('/public/auth', { customToken: action.data }, actionWrapper)).pipe(materialize())
+                // const url = this.getBaseUrl(action.action!) + '/public/auth'
+                // console.log('url', url)
+
+                return defer(() => this.getPlain(this.getBaseUrl(action.action!) + '/public/auth', { customToken: action.data }, actionWrapper)).pipe(materialize())
             }),
 
             share()
@@ -383,7 +388,7 @@ export default class RBS {
                     // Get anonym token
 
                     const url = this.getBaseUrl('') + '/public/anonymous-auth'
-                    // console.log('url', url)
+                    // console.log('url for Get anonym token', url)
                     // console.log('params', {
                     //     projectId: this.clientConfig.projectId,
                     //     developerId: this.clientConfig.developerId,
@@ -396,13 +401,10 @@ export default class RBS {
                     })
                 }
 
-
             }
 
             resolve(actionWrapper)
-
         })
-
 
     }
 
@@ -574,6 +576,30 @@ export default class RBS {
         }
 
         this.fireAuthStatus(this.getStoredTokenData())
+    }
+
+    public getAnonymToken = (ttlInSeconds:number) : Promise<RBSTokenData> => {
+
+        let baseUrl = this.getBaseUrl('')
+        let url = `${baseUrl}/public/anonymous-auth`
+        console.log(url)
+        return new Promise((resolve, reject) => {
+            let params = {
+                projectId: this.clientConfig.projectId,
+                ttlInSeconds
+            }
+            this.axiosInstance.get(url, {
+                params,
+                headers: {
+                    ['Content-Type']: 'text/plain'
+                }
+            }).then((resp) => {
+                let token:RBSTokenData = resp.data
+                resolve(token)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
     }
 
 }

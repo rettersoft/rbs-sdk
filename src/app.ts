@@ -1,4 +1,4 @@
-import RBS, {RESPONSE_TYPE, RbsRegion} from './index'
+import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent} from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -22,14 +22,18 @@ import RBS, {RESPONSE_TYPE, RbsRegion} from './index'
 // })
 
 const rbs = new RBS({
-
     projectId: "3b7eea955170401685ec7ac0187ef787",
+    region: RbsRegion.euWest1Beta
+})
+
+// rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
     
+// })
+
     // regionConfiguration: {
     //     getUrl: 'https://core-test.rettermobile.com',
     //     url: 'https://core-internal-beta.rtbs.io'
     // }
-})
 
     // rbsUrl: 'https://core-test.rettermobile.com',
     // developerId: 'rbs',
@@ -55,6 +59,11 @@ const rbs = new RBS({
 
 const main = async () => {
 
+    let token = await rbs.getAnonymToken(500)
+
+    console.log(token)
+
+
     // const url = await rbs.generateGetActionUrl({
     //     action: "rbs.some.get.SOMETHING",
     //     data: {
@@ -64,35 +73,38 @@ const main = async () => {
     
     // console.log('url', url)
 
-    try {
+    // try {
 
-        let resp = await rbs.send({
-            action: 'rbs.address.get.COUNTRIES',
+    //     let resp = await rbs.send({
+    //         action: 'rbs.address.get.COUNTRIES',
 
-            data: {
-                something: 1
-            }
-        })
-        console.log(JSON.stringify(resp, null, 4))
+    //         data: {
+    //             something: 1
+    //         }
+    //     })
+    //     console.log(JSON.stringify(resp, null, 4))
 
-    } catch (err) {
-        console.log('err', err)
-    }
-
-
+    // } catch (err) {
+    //     console.log('err', err)
+    // }
 
 
-    // let result = await send("rbs.businessuserauth.request.LOGIN",
-    //     {
-    //         "email": "email@test.com",
-    //         "password": "password"
-    //     }
-    // )
 
-    // console.log("Result: ", result)
 
-    // let authResult = await authenticateWithCustomToken(result[0].response.customToken)
+    let result = await rbs.send({
+        action: "rbs.businessuserauth.request.LOGIN",
+        data: {
+            "email": "root",
+            "password": "12345"
+        }
+    })
+        
+    console.log("Result: ", result)
 
+    let authResult = await rbs.authenticateWithCustomToken(result[0].response.customToken)
+
+    console.log('authResult', authResult)
+    
     // console.log(authResult)
 
     // await rbs.send({
@@ -109,24 +121,24 @@ const main = async () => {
 
 }
 
-const send = (action: string, data: any): Promise<any> => {
+// const send = (action: string, data: any): Promise<any> => {
 
-    return new Promise((resolve, reject) => {
+//     return new Promise((resolve, reject) => {
 
-        rbs.send({
-            action,
-            data,
-            onSuccess: (resp: any) => {
-                resolve(resp)
-            },
-            onError: (e: any) => {
-                reject(e)
-            }
-        })
+//         rbs.send({
+//             action,
+//             data,
+//             onSuccess: (resp: any) => {
+//                 resolve(resp)
+//             },
+//             onError: (e: any) => {
+//                 reject(e)
+//             }
+//         })
 
-    })
+//     })
 
-}
+// }
 
 // const authenticateWithCustomToken = (customToken:string): Promise<any> => {
 //     return new Promise((resolve, reject) => {

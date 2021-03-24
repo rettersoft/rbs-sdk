@@ -15,6 +15,7 @@ export interface ActionEvent {
     actionPayload: any
     processExecutionId: string
     processId: string
+    claims: any
 }
 
 export const headers: any = {
@@ -116,9 +117,17 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
+    let claimsBase64 = event.headers["X-Rbs-User-Claims"] || event.headers["x-rbs-user-claims"]
     
     // X-Rbs-ProcessExecutionId
     // X-Rbs-ProcessId
+    
+    let claims = {}
+
+    if(claimsBase64) {
+        let claimsStr = Buffer.from(claimsBase64, 'base64').toString('utf-8')
+        claims = JSON.parse(claimsStr)
+    }
 
     const decoded:any = jwt.verify(token, serviceSecret)
 
@@ -149,7 +158,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         serviceId,
         userId,
         processId,
-        processExecutionId
+        processExecutionId,
+        claims
     }
 }
 
