@@ -23,7 +23,8 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent} from './index'
 
 const rbs = new RBS({
     projectId: "3b7eea955170401685ec7ac0187ef787",
-    region: RbsRegion.euWest1Beta
+    region: RbsRegion.euWest1Beta,
+    anonymTokenTTL: 10000000
 })
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
@@ -59,9 +60,20 @@ const rbs = new RBS({
 
 const main = async () => {
 
-    let token = await rbs.getAnonymToken(500)
+    // let token = await rbs.getAnonymToken(500)
 
-    console.log(token)
+
+
+    // console.log(token)
+
+    let url = await rbs.generateGetActionUrl({
+        action: 'rbs.storage.get.IMAGE',
+        data: {
+            something: 1
+        }
+    })
+
+    console.log(url)
 
 
     // const url = await rbs.generateGetActionUrl({

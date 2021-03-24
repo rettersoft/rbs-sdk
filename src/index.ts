@@ -87,6 +87,7 @@ interface RBSClientConfig {
     serviceId?: string
     region?: RbsRegion
     regionConfiguration?: RbsRegionConfiguration
+    anonymTokenTTL?: number
 }
 
 export enum RBSAuthStatus {
@@ -394,11 +395,17 @@ export default class RBS {
                     //     developerId: this.clientConfig.developerId,
                     //     serviceId: this.clientConfig.serviceId
                     // })
-                    actionWrapper.tokenData = await this.getP<RBSTokenData>(url, {
+
+                    let params:any = {
                         projectId: this.clientConfig.projectId,
                         developerId: this.clientConfig.developerId,
-                        serviceId: this.clientConfig.serviceId
-                    })
+                        serviceId: this.clientConfig.serviceId,
+                    }
+                    if(this.clientConfig.anonymTokenTTL) {
+                        params.ttlInSeconds = this.clientConfig.anonymTokenTTL
+                    }
+
+                    actionWrapper.tokenData = await this.getP<RBSTokenData>(url, params)
                 }
 
             }
@@ -578,28 +585,28 @@ export default class RBS {
         this.fireAuthStatus(this.getStoredTokenData())
     }
 
-    public getAnonymToken = (ttlInSeconds:number) : Promise<RBSTokenData> => {
+    // public getAnonymToken = (ttlInSeconds:number) : Promise<RBSTokenData> => {
 
-        let baseUrl = this.getBaseUrl('')
-        let url = `${baseUrl}/public/anonymous-auth`
-        console.log(url)
-        return new Promise((resolve, reject) => {
-            let params = {
-                projectId: this.clientConfig.projectId,
-                ttlInSeconds
-            }
-            this.axiosInstance.get(url, {
-                params,
-                headers: {
-                    ['Content-Type']: 'text/plain'
-                }
-            }).then((resp) => {
-                let token:RBSTokenData = resp.data
-                resolve(token)
-            }).catch((err) => {
-                reject(err)
-            })
-        })
-    }
+    //     let baseUrl = this.getBaseUrl('')
+    //     let url = `${baseUrl}/public/anonymous-auth`
+    //     console.log(url)
+    //     return new Promise((resolve, reject) => {
+    //         let params = {
+    //             projectId: this.clientConfig.projectId,
+    //             ttlInSeconds
+    //         }
+    //         this.axiosInstance.get(url, {
+    //             params,
+    //             headers: {
+    //                 ['Content-Type']: 'text/plain'
+    //             }
+    //         }).then((resp) => {
+    //             let token:RBSTokenData = resp.data
+    //             resolve(token)
+    //         }).catch((err) => {
+    //             reject(err)
+    //         })
+    //     })
+    // }
 
 }
