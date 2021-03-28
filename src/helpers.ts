@@ -16,6 +16,7 @@ export interface ActionEvent {
     processExecutionId: string
     processId: string
     claims: any
+    isAnonymous: boolean
 }
 
 export const headers: any = {
@@ -133,6 +134,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
 
     if(decoded.projectId !== projectId || decoded.identity !== identity) throw new Error('Auth failed. Invalid JWT Token')
 
+    let isAnonymous = decoded.anonymous ? true : false
+
     let isBase64Encoded = false 
     if(event['isBase64Encoded']) {
         isBase64Encoded = Boolean(event['isBase64Encoded'])
@@ -159,7 +162,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         userId,
         processId,
         processExecutionId,
-        claims
+        claims,
+        isAnonymous
     }
 }
 
