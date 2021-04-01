@@ -8,4 +8,5 @@ temp/
 **/*.js
 **/*.js.map
 src/baran.ts
+testapp/*
 src/app.ts

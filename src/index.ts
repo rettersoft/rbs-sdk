@@ -1,11 +1,11 @@
 import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject } from 'rxjs';
 import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap } from 'rxjs/operators';
-import { AxiosInstance, AxiosRequestConfig } from 'axios'
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwt from 'jsonwebtoken'
 import jwtDecode from "jwt-decode";
 import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
 import initializeAxios from "./axiosSetup";
-
+import base64Helpers from './base64'
 
 export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
@@ -172,6 +172,7 @@ export default class RBS {
         };
 
         this.axiosInstance = initializeAxios(axiosRequestConfiguration);
+
 
         this.clientConfig = config
 
@@ -430,11 +431,15 @@ export default class RBS {
             if (actionWrapper.action?.relatedUserId) {
                 params.relatedUserId = actionWrapper.action?.relatedUserId
             }
+            if(actionWrapper.action?.headers) {
+                params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
+                console.log('params.headers', params.headers)
+            }
+
             this
                 .axiosInstance
                 .post(url, actionWrapper.action?.data, {
-                    params,
-                    headers: actionWrapper.action?.headers
+                    params
                 })
                 .then((resp) => {
                     actionWrapper.response = resp.data
@@ -452,7 +457,7 @@ export default class RBS {
         }
         if (actionWrapper.action?.data) {
             const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
-            params.data = Buffer.from(JSON.stringify(data)).toString('base64')
+            params.data = base64Helpers.urlEncode(JSON.stringify(data))
         }
         if (actionWrapper.action?.targetServiceId) {
             params.targetServiceId = actionWrapper.action?.targetServiceId
@@ -460,13 +465,16 @@ export default class RBS {
         if (actionWrapper.action?.relatedUserId) {
             params.relatedUserId = actionWrapper.action?.relatedUserId
         }
+        if(actionWrapper.action?.headers) {
+            params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
+        }
         return params
     }
 
     get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             let params = this.getParams(actionWrapper)
-            // console.log(params)
+            
             this.axiosInstance.get(url, {
                 params,
                 headers: {
