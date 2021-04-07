@@ -1,5 +1,5 @@
-import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject } from 'rxjs';
-import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap } from 'rxjs/operators';
+import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject, timer } from 'rxjs';
+import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce } from 'rxjs/operators';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwt from 'jsonwebtoken'
 import jwtDecode from "jwt-decode";
@@ -47,6 +47,8 @@ interface RBSAction {
     data?: any
     headers?: { [key: string]: string }
 
+    generateGetUrl?: boolean
+
     onSuccess?: SuccessCallBack
     onError?: ErrorCallBack
 }
@@ -56,6 +58,7 @@ interface RBSActionWrapper {
     tokenData?: RBSTokenData
     response?: any
     responseError?: Error
+    url?: string
 }
 
 
@@ -127,7 +130,7 @@ export default class RBS {
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
 
     public get authStatus(): Observable<RBSAuthChangedEvent> {
-        return this.authStatusSubject.asObservable()
+        return this.authStatusSubject.asObservable().pipe(debounce(() => timer(100)))
     }
 
     private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
@@ -219,7 +222,11 @@ export default class RBS {
             filter((r) => r.hasValue && r.kind === "N")
         ).subscribe(e => {
             if (e.value?.action?.onSuccess) {
-                e.value.action.onSuccess(e.value?.response)
+                if(e.value.action.generateGetUrl) {
+                    e.value.action.onSuccess(e.value.url)
+                } else {
+                    e.value.action.onSuccess(e.value?.response)
+                }
             }
         })
 
@@ -379,24 +386,19 @@ export default class RBS {
                     }
 
                     // If token needs refreshing, refresh it.
-                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {
+                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {  // now + 280 -> only wait 20 seconds for debugging
                         // Refresh token
 
+                        // console.log('refreshing token')
                         actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
                             refreshToken: storedTokenData.refreshToken
                         })
+
                     }
                 } else {
                     // Get anonym token
-
                     const url = this.getBaseUrl('') + '/public/anonymous-auth'
-                    // console.log('url for Get anonym token', url)
-                    // console.log('params', {
-                    //     projectId: this.clientConfig.projectId,
-                    //     developerId: this.clientConfig.developerId,
-                    //     serviceId: this.clientConfig.serviceId
-                    // })
-
+  
                     let params:any = {
                         projectId: this.clientConfig.projectId,
                         developerId: this.clientConfig.developerId,
@@ -410,6 +412,8 @@ export default class RBS {
                 }
 
             }
+
+            
 
             resolve(actionWrapper)
         })
@@ -475,19 +479,33 @@ export default class RBS {
         return new Promise((resolve, reject) => {
             let params = this.getParams(actionWrapper)
             
-            this.axiosInstance.get(url, {
-                params,
-                headers: {
-                    ['Content-Type']: 'text/plain',
-                    ...actionWrapper.action?.headers
+            if(actionWrapper.action?.generateGetUrl) {
+                // Don't get from server but just return get url
+                let url = this.getBaseUrl(actionWrapper.action.action!) + this.getServiceEndpoint(actionWrapper) + '?'
+
+                for (let k of Object.keys(params)) {
+                    url = `${url}${k}=${params[k]}&`
                 }
-            }).then((resp) => {
-                actionWrapper.response = resp.data
+
+                actionWrapper.url = url
                 resolve(actionWrapper)
-            }).catch((err) => {
-                actionWrapper.responseError = err
-                reject(actionWrapper)
-            })
+
+            } else {
+                this.axiosInstance.get(url, {
+                    params,
+                    headers: {
+                        ['Content-Type']: 'text/plain',
+                        ...actionWrapper.action?.headers
+                    }
+                }).then((resp) => {
+                    actionWrapper.response = resp.data
+                    resolve(actionWrapper)
+                }).catch((err) => {
+                    actionWrapper.responseError = err
+                    reject(actionWrapper)
+                })
+            }
+
         })
     }
 
@@ -538,18 +556,14 @@ export default class RBS {
     // PUBLIC METHODS
 
     public generateGetActionUrl = async (action: RBSAction): Promise<string> => {
-        let actionWrapper: RBSActionWrapper = {
-            action
-        }
-        const actionWithToken = await this.getActionWithTokenData(actionWrapper)
-        let params = this.getParams(actionWithToken)
-        let url = this.getBaseUrl(action.action!) + this.getServiceEndpoint(actionWithToken) + '?'
-
-        for (let k of Object.keys(params)) {
-            url = `${url}${k}=${params[k]}&`
-        }
-
-        return url
+        return new Promise((resolve, reject) => {
+            if (!action.onSuccess && !action.onError) {
+                action.onSuccess = resolve
+                action.onError = reject
+            }
+            action.generateGetUrl = true
+            this.commandQueue.next(action)
+        })
     }
 
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
@@ -593,28 +607,5 @@ export default class RBS {
         this.fireAuthStatus(this.getStoredTokenData())
     }
 
-    // public getAnonymToken = (ttlInSeconds:number) : Promise<RBSTokenData> => {
-
-    //     let baseUrl = this.getBaseUrl('')
-    //     let url = `${baseUrl}/public/anonymous-auth`
-    //     console.log(url)
-    //     return new Promise((resolve, reject) => {
-    //         let params = {
-    //             projectId: this.clientConfig.projectId,
-    //             ttlInSeconds
-    //         }
-    //         this.axiosInstance.get(url, {
-    //             params,
-    //             headers: {
-    //                 ['Content-Type']: 'text/plain'
-    //             }
-    //         }).then((resp) => {
-    //             let token:RBSTokenData = resp.data
-    //             resolve(token)
-    //         }).catch((err) => {
-    //             reject(err)
-    //         })
-    //     })
-    // }
 
 }

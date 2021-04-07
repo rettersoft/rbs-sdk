@@ -1,4 +1,4 @@
-import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent} from './index'
+import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -66,14 +66,37 @@ const main = async () => {
 
     // console.log(token)
 
-    let url = await rbs.generateGetActionUrl({
-        action: 'rbs.storage.get.IMAGE',
+    let p:Array<Promise<string | Array<ServiceResponse>>> = []
+
+    // console.log(await rbs.generateGetActionUrl({
+    //     action: 'rbs.storage.get.IMAGE',
+    //     data: {
+    //         something: 1
+    //     }
+    // }))
+
+    p.push(rbs.send({
+        action: 'rbs.address.get.COUNTRIES',
+
         data: {
             something: 1
         }
-    })
+    }))
 
-    console.log(url)
+    for(let i = 0; i<100; i++) {
+        p.push(rbs.generateGetActionUrl({
+            action: 'rbs.storage.get.IMAGE',
+            data: {
+                something: i
+            }
+        }))
+    }
+
+
+
+    let result = await Promise.all(p)
+    
+    console.log(JSON.stringify(result, null, 4))
 
 
     // const url = await rbs.generateGetActionUrl({
@@ -103,19 +126,19 @@ const main = async () => {
 
 
 
-    let result = await rbs.send({
-        action: "rbs.businessuserauth.request.LOGIN",
-        data: {
-            "email": "root",
-            "password": "12345"
-        }
-    })
+    // let result = await rbs.send({
+    //     action: "rbs.businessuserauth.request.LOGIN",
+    //     data: {
+    //         "email": "root",
+    //         "password": "12345"
+    //     }
+    // })
         
-    console.log("Result: ", result)
+    // console.log("Result: ", result)
 
-    let authResult = await rbs.authenticateWithCustomToken(result[0].response.customToken)
+    // let authResult = await rbs.authenticateWithCustomToken(result[0].response.customToken)
 
-    console.log('authResult', authResult)
+    // console.log('authResult', authResult)
     
     // console.log(authResult)
 
