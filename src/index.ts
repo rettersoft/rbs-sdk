@@ -1,5 +1,5 @@
 import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject, timer } from 'rxjs';
-import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce } from 'rxjs/operators';
+import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce, distinctUntilChanged } from 'rxjs/operators';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwt from 'jsonwebtoken'
 import jwtDecode from "jwt-decode";
@@ -130,7 +130,13 @@ export default class RBS {
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
 
     public get authStatus(): Observable<RBSAuthChangedEvent> {
-        return this.authStatusSubject.asObservable().pipe(debounce(() => timer(100)))
+        return this.authStatusSubject
+            .asObservable()
+            .pipe(distinctUntilChanged((a, b) => a.authStatus === b.authStatus &&
+                                                    a.identity === b.identity &&
+                                                    a.uid === b.uid))
+            // .pipe(debounce(() => timer(100)))
+            
     }
 
     private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
@@ -386,7 +392,7 @@ export default class RBS {
                     }
 
                     // If token needs refreshing, refresh it.
-                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {  // now + 280 -> only wait 20 seconds for debugging
+                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now + 290) {  // now + 280 -> only wait 20 seconds for debugging
                         // Refresh token
 
                         // console.log('refreshing token')
