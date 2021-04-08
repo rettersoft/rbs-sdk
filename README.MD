@@ -1,3 +1,7 @@
+### More information about RBS
+
+[RBS Documentation](https://github.com/rettersoft/rbs-docs/wiki)
+
 ### Installation
 
 `npm install @rettersoft/rbs-sdk`
