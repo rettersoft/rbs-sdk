@@ -21,7 +21,8 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} fro
 //     }
 // })
 
-const rbs = new RBS({
+const rbs = RBS.getInstance()
+rbs.init({
     projectId: "3b7eea955170401685ec7ac0187ef787",
     region: RbsRegion.euWest1Beta,
     anonymTokenTTL: 10000000

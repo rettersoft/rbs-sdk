@@ -174,7 +174,7 @@ export default class RBS {
 
     private constructor() {}
 
-    public static getInstance(config: RBSClientConfig | null): RBS {
+    public static getInstance(config?: RBSClientConfig): RBS {
         if(!RBS.instance) {
             RBS.instance = new RBS()
             if(config) {
