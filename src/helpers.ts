@@ -119,6 +119,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
     let claimsBase64 = event.headers["X-Rbs-User-Claims"] || event.headers["x-rbs-user-claims"]
+    let culture = event.headers["AcceptLanguage"] || event.headers["acceptlanguage"]
     
     // X-Rbs-ProcessExecutionId
     // X-Rbs-ProcessId

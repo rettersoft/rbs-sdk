@@ -85,9 +85,11 @@ const main = async () => {
 
     for(let i = 0; i<100; i++) {
         p.push(rbs.generateGetActionUrl({
-            action: 'rbs.storage.get.IMAGE',
+            action: 'rbs.storage.get.GET_IMAGE',
             data: {
-                something: i
+                imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
+                width: 500,
+                height: 500
             }
         }))
     }
