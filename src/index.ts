@@ -174,14 +174,18 @@ export default class RBS {
 
     private constructor() {}
 
-    public static getInstance(config?: RBSClientConfig): RBS {
-        if(!RBS.instance) {
+    public static getInstance(config: RBSClientConfig | null = null, newInstance: boolean = true): RBS {
+        if(!RBS.instance || newInstance) {
             RBS.instance = new RBS()
             if(config) {
                 RBS.instance.init(config)
             }
         }
         return RBS.instance
+    }
+
+    public static dispose() {
+        RBS.instance = null
     }
 
     init(config: RBSClientConfig) {
@@ -577,7 +581,12 @@ export default class RBS {
 
     // PUBLIC METHODS
 
-    public generateGetActionUrl = async (action: RBSAction): Promise<string> => {
+    public generateGetActionUrl = (action: RBSAction): Promise<string> => {
+
+        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+
+
+
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
@@ -590,6 +599,8 @@ export default class RBS {
 
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
 
+        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
                 action.onSuccess = resolve
@@ -600,6 +611,8 @@ export default class RBS {
     }
 
     public authenticateWithCustomToken = (token: string): Promise<RBSAuthChangedEvent> => {
+
+        if(!this.initialized) throw new Error('RBS SDK is not initialized')
 
         return new Promise((resolve, reject) => {
 
@@ -618,6 +631,8 @@ export default class RBS {
     }
 
     public signOut = () => {
+        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+
         if (this.isNode()) {
             // Node environment
             this.latestTokenData = undefined
