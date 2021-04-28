@@ -46,6 +46,7 @@ interface RBSAction {
     targetServiceId?: string
     relatedUserId?: string
     data?: any
+    culture?: string
     headers?: { [key: string]: string }
 
     generateGetUrl?: boolean
@@ -465,6 +466,9 @@ export default class RBS {
                 params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
                 console.log('params.headers', params.headers)
             }
+            if(actionWrapper.action?.culture) {
+                params.culture = actionWrapper.action.culture
+            }
 
             this
                 .axiosInstance!
@@ -498,6 +502,10 @@ export default class RBS {
         if(actionWrapper.action?.headers) {
             params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
         }
+        if(actionWrapper.action?.culture) {
+            params.culture = actionWrapper.action.culture
+        }
+
         return params
     }
 
@@ -585,7 +593,7 @@ export default class RBS {
 
         if(!this.initialized) throw new Error('RBS SDK is not initialized')
 
-
+        if(!action.culture) action.culture = 'en-US'
 
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
@@ -600,6 +608,8 @@ export default class RBS {
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
 
         if(!this.initialized) throw new Error('RBS SDK is not initialized')
+
+        if(!action.culture) action.culture = 'en-US'
 
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {

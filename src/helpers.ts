@@ -17,6 +17,7 @@ export interface ActionEvent {
     processId: string
     claims: any
     isAnonymous: boolean
+    culture: string
 }
 
 export const headers: any = {
@@ -54,7 +55,10 @@ export interface RbsServiceResponse {
     responseType: RESPONSE_TYPE
     errorCode?: string
     message?: any
+    culture?: string
     data?: any
+    transform?: boolean
+    transformContext?: { [key: string]: string }
     errors?: string[]
     cacheForDuration?: Duration
     headers?: { [key: string]: string }
@@ -91,14 +95,27 @@ export const createResponse = (response: RbsServiceResponse): any => {
 
     //message: response.message ? response.message : JSON.stringify(response.responseType),
     
+    if(!response.transform) response.transform = false
+    if(!response.transformContext) response.transform = false
+    if(!response.culture) response.culture = 'en-US'
+
+    let reqHeaders = {
+        ...headers,
+        ['x-rbs-errorcode']: response.errorCode,
+        ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0',
+        ...response.headers
+    }
+
+    if(response.transform) {
+        reqHeaders['x-rbs-transform'] = response.transform
+        if(response.transformContext) reqHeaders['x-rbs-transform-context'] = Buffer.from(JSON.stringify(response.transformContext), 'base64').toString('utf-8')
+    }
+
+    reqHeaders['x-rbs-culture'] = response.culture
+    
     return {
         statusCode: getStatus(response.responseType),
-        headers: {
-            ...headers,
-            ['x-rbs-errorcode']: response.errorCode,
-            ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0',
-            ...response.headers
-        },
+        headers: reqHeaders,
         body: JSON.stringify({
             errors: response.errors,
             data: response.data
@@ -119,7 +136,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
     let claimsBase64 = event.headers["X-Rbs-User-Claims"] || event.headers["x-rbs-user-claims"]
-    let culture = event.headers["AcceptLanguage"] || event.headers["acceptlanguage"]
+    let culture = event.headers["X-Rbs-Culture"] || event.headers["x-rbs-culture"]
     
     // X-Rbs-ProcessExecutionId
     // X-Rbs-ProcessId
@@ -164,6 +181,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         processId,
         processExecutionId,
         claims,
+        culture,
         isAnonymous
     }
 }
