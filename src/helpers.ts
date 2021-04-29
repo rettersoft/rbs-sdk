@@ -96,7 +96,7 @@ export const createResponse = (response: RbsServiceResponse): any => {
     //message: response.message ? response.message : JSON.stringify(response.responseType),
     
     if(!response.transform) response.transform = false
-    if(!response.transformContext) response.transform = false
+    //if(!response.transformContext) response.transform = false
     if(!response.culture) response.culture = 'en-US'
 
     let reqHeaders = {
@@ -108,7 +108,7 @@ export const createResponse = (response: RbsServiceResponse): any => {
 
     if(response.transform) {
         reqHeaders['x-rbs-transform'] = response.transform
-        if(response.transformContext) reqHeaders['x-rbs-transform-context'] = Buffer.from(JSON.stringify(response.transformContext), 'base64').toString('utf-8')
+        if(response.transformContext) reqHeaders['x-rbs-transform-context'] = Buffer.from(JSON.stringify(response.transformContext)).toString('base64')
     }
 
     reqHeaders['x-rbs-culture'] = response.culture
