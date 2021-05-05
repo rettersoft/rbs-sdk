@@ -15,6 +15,7 @@ export interface ActionEvent {
     actionPayload: any
     processExecutionId: string
     processId: string
+    processExecutorId: string
     claims: any
     isAnonymous: boolean
     culture: string
@@ -135,7 +136,10 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
+    let processExecutorId = event.headers["X-Rbs-ProcessExecutorId"] || event.headers["x-rbs-processexecutorid"]
+    
     let claimsBase64 = event.headers["X-Rbs-User-Claims"] || event.headers["x-rbs-user-claims"]
+
     let culture = event.headers["X-Rbs-Culture"] || event.headers["x-rbs-culture"]
     
     // X-Rbs-ProcessExecutionId
@@ -180,6 +184,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         userId,
         processId,
         processExecutionId,
+        processExecutorId,
         claims,
         culture,
         isAnonymous
