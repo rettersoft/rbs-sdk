@@ -67,7 +67,7 @@ const main = async () => {
 
     // console.log(token)
 
-    let p:Array<Promise<string | Array<ServiceResponse>>> = []
+    // let p:Array<Promise<string | Array<ServiceResponse>>> = []
 
     // console.log(await rbs.generateGetActionUrl({
     //     action: 'rbs.storage.get.IMAGE',
@@ -76,30 +76,37 @@ const main = async () => {
     //     }
     // }))
 
-    p.push(rbs.send({
-        action: 'rbs.address.get.COUNTRIES',
+    // p.push(rbs.send({
+    //     action: 'rbs.address.get.COUNTRIES',
 
+    //     data: {
+    //         something: 1
+    //     }
+    // }))
+
+    // for(let i = 0; i<100; i++) {
+    //     p.push(rbs.generateGetActionUrl({
+    //         action: 'rbs.storage.get.GET_IMAGE',
+    //         data: {
+    //             imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
+    //             width: 500,
+    //             height: 500
+    //         }
+    //     }))
+    // }
+
+    let url = rbs.generatePublicGetActionUrl({
+        action: 'rbs.storage.get.GET_IMAGE',
         data: {
-            something: 1
+            imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
+            width: 500,
+            height: 500
         }
-    }))
+    })
 
-    for(let i = 0; i<100; i++) {
-        p.push(rbs.generateGetActionUrl({
-            action: 'rbs.storage.get.GET_IMAGE',
-            data: {
-                imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
-                width: 500,
-                height: 500
-            }
-        }))
-    }
+    console.log(url)
 
-
-
-    let result = await Promise.all(p)
-    
-    console.log(JSON.stringify(result, null, 4))
+    // console.log(JSON.stringify(url, null, 4))
 
 
     // const url = await rbs.generateGetActionUrl({

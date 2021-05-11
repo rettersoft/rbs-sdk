@@ -125,7 +125,7 @@ export default class RBS {
     // Used in node env
     private latestTokenData?: RBSTokenData
 
-    private initialized:boolean = false
+    private initialized: boolean = false
 
     isNode(): boolean {
         return typeof window === 'undefined'
@@ -137,10 +137,10 @@ export default class RBS {
         return this.authStatusSubject
             .asObservable()
             .pipe(distinctUntilChanged((a, b) => a.authStatus === b.authStatus &&
-                                                    a.identity === b.identity &&
-                                                    a.uid === b.uid))
-            // .pipe(debounce(() => timer(100)))
-            
+                a.identity === b.identity &&
+                a.uid === b.uid))
+        // .pipe(debounce(() => timer(100)))
+
     }
 
     private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
@@ -153,9 +153,9 @@ export default class RBS {
 
     private getBaseUrl = (action: string): string => {
 
-        let region:RbsRegionConfiguration|undefined = undefined
+        let region: RbsRegionConfiguration | undefined = undefined
 
-        if(this.clientConfig!.regionConfiguration) {
+        if (this.clientConfig!.regionConfiguration) {
             region = this.clientConfig!.regionConfiguration
         } else {
             region = RbsRegions.find(r => r.regionId === this.clientConfig!.region)
@@ -164,7 +164,7 @@ export default class RBS {
             }
         }
 
-        if(!region) throw new Error('Invalid rbs region')
+        if (!region) throw new Error('Invalid rbs region')
 
         if (action.includes('.get.')) {
             return region.getUrl
@@ -173,12 +173,12 @@ export default class RBS {
         }
     }
 
-    private constructor() {}
+    private constructor() { }
 
     public static getInstance(config: RBSClientConfig | null = null, newInstance: boolean = true): RBS {
-        if(!RBS.instance || newInstance) {
+        if (!RBS.instance || newInstance) {
             RBS.instance = new RBS()
-            if(config) {
+            if (config) {
                 RBS.instance.init(config)
             }
         }
@@ -191,7 +191,7 @@ export default class RBS {
 
     init(config: RBSClientConfig) {
 
-        if(this.initialized) throw new Error('RBS SDK already initialized.')
+        if (this.initialized) throw new Error('RBS SDK already initialized.')
         this.initialized = true
 
         const axiosRequestConfiguration: AxiosRequestConfig = {
@@ -249,7 +249,7 @@ export default class RBS {
             filter((r) => r.hasValue && r.kind === "N")
         ).subscribe(e => {
             if (e.value?.action?.onSuccess) {
-                if(e.value.action.generateGetUrl) {
+                if (e.value.action.generateGetUrl) {
                     e.value.action.onSuccess(e.value.url)
                 } else {
                     e.value.action.onSuccess(e.value?.response)
@@ -425,13 +425,13 @@ export default class RBS {
                 } else {
                     // Get anonym token
                     const url = this.getBaseUrl('') + '/public/anonymous-auth'
-  
-                    let params:any = {
+
+                    let params: any = {
                         projectId: this.clientConfig!.projectId,
                         developerId: this.clientConfig!.developerId,
                         serviceId: this.clientConfig!.serviceId,
                     }
-                    if(this.clientConfig!.anonymTokenTTL) {
+                    if (this.clientConfig!.anonymTokenTTL) {
                         params.ttlInSeconds = this.clientConfig!.anonymTokenTTL
                     }
 
@@ -440,7 +440,7 @@ export default class RBS {
 
             }
 
-            
+
 
             resolve(actionWrapper)
         })
@@ -462,11 +462,11 @@ export default class RBS {
             if (actionWrapper.action?.relatedUserId) {
                 params.relatedUserId = actionWrapper.action?.relatedUserId
             }
-            if(actionWrapper.action?.headers) {
+            if (actionWrapper.action?.headers) {
                 params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
                 console.log('params.headers', params.headers)
             }
-            if(actionWrapper.action?.culture) {
+            if (actionWrapper.action?.culture) {
                 params.culture = actionWrapper.action.culture
             }
 
@@ -499,10 +499,10 @@ export default class RBS {
         if (actionWrapper.action?.relatedUserId) {
             params.relatedUserId = actionWrapper.action?.relatedUserId
         }
-        if(actionWrapper.action?.headers) {
+        if (actionWrapper.action?.headers) {
             params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
         }
-        if(actionWrapper.action?.culture) {
+        if (actionWrapper.action?.culture) {
             params.culture = actionWrapper.action.culture
         }
 
@@ -512,8 +512,8 @@ export default class RBS {
     get = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             let params = this.getParams(actionWrapper)
-            
-            if(actionWrapper.action?.generateGetUrl) {
+
+            if (actionWrapper.action?.generateGetUrl) {
                 // Don't get from server but just return get url
                 let url = this.getBaseUrl(actionWrapper.action.action!) + this.getServiceEndpoint(actionWrapper) + '?'
 
@@ -589,11 +589,40 @@ export default class RBS {
 
     // PUBLIC METHODS
 
+    public getUser = (): RbsJwtPayload | null => {
+        let tokenData = this.getStoredTokenData()
+        if (!tokenData) return null
+        return jwtDecode<RbsJwtPayload>(tokenData.accessToken)
+    }
+
+    public generatePublicGetActionUrl = (action: RBSAction): string => {
+
+        let actionWrapper: RBSActionWrapper = {
+            action,
+            tokenData: {
+                isServiceToken: false,
+                accessToken: '',
+                refreshToken: ''
+            }
+        }
+
+        let params = this.getParams(actionWrapper)
+
+        // Don't get from server but just return get url
+        let url = this.getBaseUrl(actionWrapper.action!.action!) + this.getServiceEndpoint(actionWrapper) + '?'
+
+        for (let k of Object.keys(params)) {
+            url = `${url}${k}=${params[k]}&`
+        }
+
+        return url
+    }
+
     public generateGetActionUrl = (action: RBSAction): Promise<string> => {
 
-        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+        if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
-        if(!action.culture) action.culture = 'en-US'
+        if (!action.culture) action.culture = 'en-US'
 
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
@@ -607,9 +636,9 @@ export default class RBS {
 
     public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
 
-        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+        if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
-        if(!action.culture) action.culture = 'en-US'
+        if (!action.culture) action.culture = 'en-US'
 
         return new Promise((resolve, reject) => {
             if (!action.onSuccess && !action.onError) {
@@ -622,7 +651,7 @@ export default class RBS {
 
     public authenticateWithCustomToken = (token: string): Promise<RBSAuthChangedEvent> => {
 
-        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+        if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         return new Promise((resolve, reject) => {
 
@@ -641,7 +670,7 @@ export default class RBS {
     }
 
     public signOut = () => {
-        if(!this.initialized) throw new Error('RBS SDK is not initialized')
+        if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         if (this.isNode()) {
             // Node environment
