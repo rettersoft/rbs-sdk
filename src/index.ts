@@ -199,7 +199,8 @@ export default class RBS {
             headers: {
                 'Content-Type': 'application/json',
             },
-            timeout: 30
+            
+            timeout: 30000
         };
 
         this.axiosInstance = initializeAxios(axiosRequestConfiguration);
