@@ -26,7 +26,7 @@ rbs.init({
     projectId: "3b7eea955170401685ec7ac0187ef787",
     region: RbsRegion.euWest1Beta,
     anonymTokenTTL: 10000000,
-    logLevel: 'TRACE'
+    // logLevel: 'TRACE'
 })
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
@@ -77,13 +77,13 @@ const main = async () => {
     //     }
     // }))
 
-    // p.push(rbs.send({
-    //     action: 'rbs.address.get.COUNTRIES',
+    await rbs.send({
+        action: 'rbs.address.get.COUNTRIES',
 
-    //     data: {
-    //         something: 1
-    //     }
-    // }))
+        data: {
+            something: 1
+        }
+    })
 
     // for(let i = 0; i<100; i++) {
     //     p.push(rbs.generateGetActionUrl({
@@ -96,16 +96,16 @@ const main = async () => {
     //     }))
     // }
 
-    let url = rbs.generatePublicGetActionUrl({
-        action: 'rbs.storage.get.GET_IMAGE',
-        data: {
-            imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
-            width: 500,
-            height: 500
-        }
-    })
+    // let url = rbs.generatePublicGetActionUrl({
+    //     action: 'rbs.storage.get.GET_IMAGE',
+    //     data: {
+    //         imageId: "920c42c9-72a3-435d-97f7-0a3f932a96c1",
+    //         width: 500,
+    //         height: 500
+    //     }
+    // })
 
-    console.log(url)
+    // console.log(url)
 
     // console.log(JSON.stringify(url, null, 4))
 

@@ -219,7 +219,7 @@ export default class RBS {
         if(config.logLevel) 
             log.setLevel(config.logLevel)
         else 
-            log.setLevel("ERROR")
+            log.setLevel("INFO")
 
         this.clientConfig! = config
 
@@ -376,7 +376,9 @@ export default class RBS {
     }
 
     fireAuthStatus = (tokenData: RBSTokenData | undefined) => {
-        this.authStatusSubject.next(this.getAuthChangedEvent(tokenData))
+        const event = this.getAuthChangedEvent(tokenData)
+        log.info('RBSSDK LOG: fireAuthStatus event:', event)
+        this.authStatusSubject.next(event)
     }
 
     _getStoredTokenData = (): RBSTokenData | undefined => {
@@ -403,11 +405,11 @@ export default class RBS {
 
         return new Promise(async (resolve, reject) => {
 
-            log.trace('RBSSDK TRACE: getActionWithTokenData started')
+            log.info('RBSSDK LOG: getActionWithTokenData started')
 
             if (this.clientConfig!.secretKey && this.clientConfig!.serviceId) {
 
-                log.trace('RBSSDK TRACE: secretKey and serviceId found')
+                log.info('RBSSDK LOG: secretKey and serviceId found')
 
                 let token = jwt.sign({
                     projectId: this.clientConfig!.projectId,
@@ -424,19 +426,19 @@ export default class RBS {
 
             } else {
 
-                log.trace('RBSSDK TRACE: secretKey and serviceId not found')
+                log.info('RBSSDK LOG: secretKey and serviceId not found')
 
                 let now = this.getSafeNow()
 
-                log.trace('RBSSDK TRACE: now:', now)
+                log.info('RBSSDK LOG: now:', now)
 
                 let storedTokenData: RBSTokenData | undefined = this._getStoredTokenData()
 
-                log.trace('RBSSDK TRACE: storedTokenData:', storedTokenData)
+                log.info('RBSSDK LOG: storedTokenData:', storedTokenData)
 
                 if (storedTokenData) {
 
-                    log.trace('RBSSDK TRACE: storedTokenData is defined')
+                    log.info('RBSSDK LOG: storedTokenData is defined')
 
                     const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
                     const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
@@ -444,28 +446,28 @@ export default class RBS {
                     // If token doesn't need refreshing return it.
                     if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
 
-                        log.trace('RBSSDK TRACE: returning same token')
+                        log.info('RBSSDK LOG: returning same token')
                         // Just return same token
                         actionWrapper.tokenData = storedTokenData
 
                     }
 
                     // If token needs refreshing, refresh it.
-                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {  // now + 280 -> only wait 20 seconds for debugging
+                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt <= now) {  // now + 280 -> only wait 20 seconds for debugging
                         // Refresh token
 
-                        log.trace('RBSSDK TRACE: token refresh needed')
+                        log.info('RBSSDK LOG: token refresh needed')
                         // console.log('refreshing token')
                         actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
                             refreshToken: storedTokenData.refreshToken
                         })
 
-                        log.trace('RBSSDK TRACE: refreshed tokenData:', actionWrapper.tokenData)
+                        log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
 
                     }
                 } else {
 
-                    log.trace('RBSSDK TRACE: getting anonym token')
+                    log.info('RBSSDK LOG: getting anonym token')
 
                     // Get anonym token
                     const url = this.getBaseUrl('') + '/public/anonymous-auth'
@@ -481,12 +483,12 @@ export default class RBS {
 
                     actionWrapper.tokenData = await this.getP<RBSTokenData>(url, params)
 
-                    log.trace('RBSSDK TRACE: fetched anonym token:', actionWrapper.tokenData)
+                    log.info('RBSSDK LOG: fetched anonym token:', actionWrapper.tokenData)
                 }
 
             }
 
-            log.trace('RBSSDK TRACE: resolving with actionWrapper:', actionWrapper)
+            log.info('RBSSDK LOG: resolving with actionWrapper:', actionWrapper)
 
             resolve(actionWrapper)
         })
@@ -604,7 +606,7 @@ export default class RBS {
     }
 
     getSafeNow = (): number => {
-        return Math.round((new Date()).getTime() / 1000)
+        return Math.round((new Date()).getTime() / 1000) + 30 // Plus 30 seconds, just in case.
     }
 
     setTokenData = (tokenData: RBSTokenData) => {
