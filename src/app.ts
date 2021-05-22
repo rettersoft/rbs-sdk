@@ -25,7 +25,8 @@ const rbs = RBS.getInstance()
 rbs.init({
     projectId: "3b7eea955170401685ec7ac0187ef787",
     region: RbsRegion.euWest1Beta,
-    anonymTokenTTL: 10000000
+    anonymTokenTTL: 10000000,
+    logLevel: 'TRACE'
 })
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {

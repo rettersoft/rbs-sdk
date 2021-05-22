@@ -6,9 +6,19 @@ import jwtDecode from "jwt-decode";
 import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
 import initializeAxios from "./axiosSetup";
 import base64Helpers from './base64'
-
+import log, { LogLevelDesc } from 'loglevel'
 
 export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
+
+enum LogLevel {
+    VERBOSE = 1, 
+    DEBUG,
+    ERROR
+}
+interface LogMessage {
+    level: LogLevel
+    message: string
+}
 
 export interface ServiceResponse {
     errorCode: string
@@ -93,6 +103,7 @@ interface RBSClientConfig {
     region?: RbsRegion
     regionConfiguration?: RbsRegionConfiguration
     anonymTokenTTL?: number
+    logLevel?: LogLevelDesc
 }
 
 export enum RBSAuthStatus {
@@ -205,6 +216,10 @@ export default class RBS {
 
         this.axiosInstance = initializeAxios(axiosRequestConfiguration);
 
+        if(config.logLevel) 
+            log.setLevel(config.logLevel)
+        else 
+            log.setLevel("ERROR")
 
         this.clientConfig! = config
 
@@ -379,11 +394,20 @@ export default class RBS {
         return storedTokenData
     }
 
+
+    logMessage = (logMessage:LogMessage) => {
+
+    }
+
     getActionWithTokenData = (actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
 
         return new Promise(async (resolve, reject) => {
 
+            log.trace('RBSSDK TRACE: getActionWithTokenData started')
+
             if (this.clientConfig!.secretKey && this.clientConfig!.serviceId) {
+
+                log.trace('RBSSDK TRACE: secretKey and serviceId found')
 
                 let token = jwt.sign({
                     projectId: this.clientConfig!.projectId,
@@ -399,32 +423,50 @@ export default class RBS {
                 }
 
             } else {
+
+                log.trace('RBSSDK TRACE: secretKey and serviceId not found')
+
                 let now = this.getSafeNow()
+
+                log.trace('RBSSDK TRACE: now:', now)
 
                 let storedTokenData: RBSTokenData | undefined = this._getStoredTokenData()
 
+                log.trace('RBSSDK TRACE: storedTokenData:', storedTokenData)
+
                 if (storedTokenData) {
+
+                    log.trace('RBSSDK TRACE: storedTokenData is defined')
 
                     const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
                     const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
 
                     // If token doesn't need refreshing return it.
                     if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
+
+                        log.trace('RBSSDK TRACE: returning same token')
                         // Just return same token
                         actionWrapper.tokenData = storedTokenData
+
                     }
 
                     // If token needs refreshing, refresh it.
                     if (refreshTokenExpiresAt > now && accessTokenExpiresAt < now) {  // now + 280 -> only wait 20 seconds for debugging
                         // Refresh token
 
+                        log.trace('RBSSDK TRACE: token refresh needed')
                         // console.log('refreshing token')
                         actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
                             refreshToken: storedTokenData.refreshToken
                         })
 
+                        log.trace('RBSSDK TRACE: refreshed tokenData:', actionWrapper.tokenData)
+
                     }
                 } else {
+
+                    log.trace('RBSSDK TRACE: getting anonym token')
+
                     // Get anonym token
                     const url = this.getBaseUrl('') + '/public/anonymous-auth'
 
@@ -438,11 +480,13 @@ export default class RBS {
                     }
 
                     actionWrapper.tokenData = await this.getP<RBSTokenData>(url, params)
+
+                    log.trace('RBSSDK TRACE: fetched anonym token:', actionWrapper.tokenData)
                 }
 
             }
 
-
+            log.trace('RBSSDK TRACE: resolving with actionWrapper:', actionWrapper)
 
             resolve(actionWrapper)
         })
