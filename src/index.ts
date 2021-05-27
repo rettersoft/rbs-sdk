@@ -45,6 +45,8 @@ export interface RbsJwtPayload {
 export interface RBSTokenData {
     accessToken: string
     refreshToken: string
+    accessTokenExpiresAt: number
+    refreshTokenExpiresAt: number
     isServiceToken: boolean
 }
 
@@ -219,7 +221,7 @@ export default class RBS {
         if(config.logLevel) 
             log.setLevel(config.logLevel)
         else 
-            log.setLevel("INFO")
+            log.setLevel("ERROR")
 
         this.clientConfig! = config
 
@@ -314,7 +316,9 @@ export default class RBS {
                 actionWrapper.tokenData = {
                     accessToken: actionWrapper.response.data.accessToken,
                     refreshToken: actionWrapper.response.data.refreshToken,
-                    isServiceToken: false
+                    isServiceToken: false,
+                    accessTokenExpiresAt: 0,
+                    refreshTokenExpiresAt: 0
                 }
                 return actionWrapper
             }),
@@ -421,7 +425,9 @@ export default class RBS {
                 actionWrapper.tokenData = {
                     accessToken: token,
                     refreshToken: '',
-                    isServiceToken: true
+                    isServiceToken: true,
+                    accessTokenExpiresAt: 0,
+                    refreshTokenExpiresAt: 0
                 }
 
             } else {
@@ -619,7 +625,11 @@ export default class RBS {
         }
     }
 
-    getStoredTokenData = (): RBSTokenData | undefined => {
+
+
+    // PUBLIC METHODS
+
+    public getStoredTokenData = (): RBSTokenData | undefined => {
 
         if (this.isNode()) {
             // Node environment
@@ -628,14 +638,17 @@ export default class RBS {
             // Browser environment
             const storedTokenData = localStorage.getItem(RBS_TOKENS_KEY)
             if (storedTokenData) {
-                return JSON.parse(storedTokenData)
+                const data:RBSTokenData = JSON.parse(storedTokenData)
+                const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(data.accessToken).exp || 0
+                const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(data.refreshToken).exp || 0
+                data.accessTokenExpiresAt = accessTokenExpiresAt
+                data.refreshTokenExpiresAt = refreshTokenExpiresAt
+                return data
             } else {
                 return undefined
             }
         }
     }
-
-    // PUBLIC METHODS
 
     public getUser = (): RbsJwtPayload | null => {
         let tokenData = this.getStoredTokenData()
@@ -650,7 +663,9 @@ export default class RBS {
             tokenData: {
                 isServiceToken: false,
                 accessToken: '',
-                refreshToken: ''
+                refreshToken: '',
+                accessTokenExpiresAt: 0,
+                refreshTokenExpiresAt: 0
             }
         }
 
