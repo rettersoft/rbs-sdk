@@ -21,13 +21,19 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} fro
 //     }
 // })
 
+
+
 const rbs = RBS.getInstance()
 rbs.init({
-    projectId: "3b7eea955170401685ec7ac0187ef787",
-    region: RbsRegion.euWest1Beta,
-    anonymTokenTTL: 10000000,
+    developerId: 'tbs',
+    serviceId: 'backend',
+    projectId: "7439fb03150144f6b54e1cb3ca577d4f",
+    secretKey: 'FCB80422-F88F-4122-AFFC-D4E5D5A29A66',
+    // region: RbsRegion.euWest1,
+    // anonymTokenTTL: 10000000,
     // logLevel: 'TRACE'
 })
+
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
     
@@ -77,13 +83,20 @@ const main = async () => {
     //     }
     // }))
 
-    await rbs.send({
-        action: 'rbs.address.get.COUNTRIES',
+    try {
 
-        data: {
-            something: 1
-        }
-    })
+        await rbs.send({
+            action: 'rbs.sms.request.SEND',
+            data: { 
+                "type": "otp", 
+                "phoneNumber": "905309364921", 
+                "message": "otp test"
+            }
+        })
+
+    } catch (err) {
+        console.log(err)
+    }
 
     // for(let i = 0; i<100; i++) {
     //     p.push(rbs.generateGetActionUrl({

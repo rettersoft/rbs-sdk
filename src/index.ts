@@ -7,11 +7,13 @@ import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClas
 import initializeAxios from "./axiosSetup";
 import base64Helpers from './base64'
 import log, { LogLevelDesc } from 'loglevel'
+import { WebsocketBuilder, Websocket as WebSocket1, ConstantBackoff } from 'websocket-ts';
+
 
 export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
 enum LogLevel {
-    VERBOSE = 1, 
+    VERBOSE = 1,
     DEBUG,
     ERROR
 }
@@ -80,7 +82,8 @@ interface RBSActionWrapper {
 export interface RbsRegionConfiguration {
     regionId?: RbsRegion,
     getUrl: string,
-    url: string
+    url: string,
+    socketUrl: string
 }
 
 export enum RbsRegion {
@@ -90,12 +93,22 @@ export enum RbsRegion {
 const RbsRegions: Array<RbsRegionConfiguration> = [{
     regionId: RbsRegion.euWest1,
     getUrl: 'https://core.rtbs.io',
-    url: 'https://core-internal.rtbs.io'
+    url: 'https://core-internal.rtbs.io',
+    socketUrl: 'wss://socket.rtbs.io'
 }, {
     regionId: RbsRegion.euWest1Beta,
     getUrl: 'https://core-test.rettermobile.com',
-    url: 'https://core-internal-beta.rtbs.io'
+    url: 'https://core-internal-beta.rtbs.io',
+    socketUrl: 'wss://socket-test.rtbs.io'
 }]
+
+export enum RbsClientPlatformType {
+    IOS = "IOS",
+    ANDROID = "ANDROID",
+    SERVICE = "SERVICE",
+    WEB = "WEB",
+    OTHER = "OTHER"
+}
 
 interface RBSClientConfig {
     projectId: string
@@ -106,6 +119,8 @@ interface RBSClientConfig {
     regionConfiguration?: RbsRegionConfiguration
     anonymTokenTTL?: number
     logLevel?: LogLevelDesc
+    agentType?: RbsClientPlatformType
+    agentName?: string
 }
 
 export enum RBSAuthStatus {
@@ -124,6 +139,30 @@ export interface RBSAuthChangedEvent {
 
 const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
 
+export enum SocketConnectionStatus {
+    CONNECTED = "CONNECTED",
+    DISCONNECTED = "DISCONNECTED",
+}
+
+export enum RBSSocketEventType {
+    CONNECTED = "CONNECTED",
+    DISCONNECTED = "DISCONNECTED",
+    MESSAGE_RECEIVED = "MESSAGE_RECEIVED",
+    ERROR = "ERROR",
+    RETRY = "RETRY"
+}
+
+export interface RBSSocketEvent {
+    eventType: RBSSocketEventType
+    data?: any | undefined
+    error?: any | undefined
+}
+
+export interface RBSSocket {
+    socket?: WebSocket1 | null
+    userId?: string | null
+}
+
 
 export default class RBS {
 
@@ -131,6 +170,8 @@ export default class RBS {
 
     private commandQueue = new Subject<RBSAction>()
     private customAuthQueue = new Subject<RBSAction>()
+
+    private _socketEvents = new Subject<RBSSocketEvent>()
 
     private clientConfig: RBSClientConfig | null = null
     private axiosInstance: AxiosInstance | null = null
@@ -140,11 +181,21 @@ export default class RBS {
 
     private initialized: boolean = false
 
+    private _socket: RBSSocket | null = null
+
     isNode(): boolean {
         return typeof window === 'undefined'
     }
 
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
+
+    private socketConnectionStatusSubject = new ReplaySubject<SocketConnectionStatus>(1)
+
+    public get socketConnectionStatus(): Observable<SocketConnectionStatus> {
+        return this.socketConnectionStatusSubject.asObservable()
+    }
+
+
 
     public get authStatus(): Observable<RBSAuthChangedEvent> {
         return this.authStatusSubject
@@ -156,12 +207,20 @@ export default class RBS {
 
     }
 
+    public get socketEvents(): Observable<RBSSocketEvent> {
+        return this._socketEvents.asObservable()
+    }
+
     private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
         let endpoint = actionWrapper.tokenData!.isServiceToken ? '/service/action' : '/user/action'
         const action = actionWrapper.action!.action!
         const actionType = action.split('.')[2]
         endpoint = `${endpoint}/${this.clientConfig!.projectId}/${action}`
         return endpoint
+    }
+
+    private getCurrentRegionConfiguration = (): RbsRegionConfiguration | undefined => {
+        return RbsRegions.find(r => r.regionId === this.clientConfig!.region)
     }
 
     private getBaseUrl = (action: string): string => {
@@ -212,15 +271,15 @@ export default class RBS {
             headers: {
                 'Content-Type': 'application/json',
             },
-            
+
             timeout: 30000
         };
 
         this.axiosInstance = initializeAxios(axiosRequestConfiguration);
 
-        if(config.logLevel) 
+        if (config.logLevel)
             log.setLevel(config.logLevel)
-        else 
+        else
             log.setLevel("ERROR")
 
         this.clientConfig! = config
@@ -236,12 +295,17 @@ export default class RBS {
                 }
                 return await this.getActionWithTokenData(actionWrapper)
             }),
-            tap(actionWrapper => {
-                this.fireAuthStatus(actionWrapper.tokenData)
-            }),
+
             filter(actionWrapper => actionWrapper.tokenData != null),
             tap(actionWrapper => {
                 this.setTokenData(actionWrapper.tokenData!)
+            }),
+            tap(actionWrapper => {
+                this.fireAuthStatus(actionWrapper.tokenData)
+            }),
+            tap(async actionWrapper => {
+                // Connect socket here.
+                await this.connectSocket()
             }),
             mergeMap((ev) => {
 
@@ -289,7 +353,6 @@ export default class RBS {
 
 
         // Custom auth
-
 
         let customAuthResult = this.customAuthQueue.pipe(
             concatMap((action) => {
@@ -350,6 +413,113 @@ export default class RBS {
         })
 
         this.fireAuthStatus(this.getStoredTokenData())
+
+        this.authStatus.subscribe((e) => {
+            console.log("AUTH STATUS LISTENER", e)
+
+            // this.connectSocket()
+        })
+
+        this._socketEvents.subscribe((e) => {
+            switch(e.eventType)  {
+                case RBSSocketEventType.DISCONNECTED: {
+                    this.commandQueue.next({
+                        action: 'rbs.core.request.PING'
+                    })
+                    break
+                }
+            }
+        })
+    }
+
+    connectSocket = () : Promise<boolean> => {
+
+        return new Promise((resolve, reject) => {
+
+            if(this.isNode()) {
+                resolve(true)
+                return
+            }
+
+            // Check if there is a connected socket
+
+            let connectionRequired = false
+            let userId: string | undefined = undefined
+
+            const storedTokenData = this.getStoredTokenData()
+
+            if(!storedTokenData) {
+                resolve(false)
+                return
+            }
+
+            if (this._socket && this._socket.socket && storedTokenData) {
+                userId = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).userId
+                if (userId !== this._socket.userId) {
+                    connectionRequired = true
+                    this._socket.socket.close()
+                }
+            } else {
+                connectionRequired = true
+            }
+
+
+            if (connectionRequired) {
+                let wsUrl = this.getCurrentRegionConfiguration()?.socketUrl
+                console.log('wsUrl', wsUrl)
+
+                console.log('this.getStoredTokenData()?.accessToken', storedTokenData.accessToken)
+                if (wsUrl && storedTokenData.accessToken) {
+                    console.log('OPENING SOCKET')
+                    const socket = new WebsocketBuilder(wsUrl + "?auth=" + this.getStoredTokenData()?.accessToken)
+                        .onOpen((i, ev) => {
+                            console.log("SOCKET opened")
+                            this._socketEvents.next({
+                                eventType: RBSSocketEventType.CONNECTED
+                            })
+                            resolve(true)
+                        })
+                        .onClose((i, ev) => {
+                            console.log("SOCKET closed")
+                            this._socketEvents.next({
+                                eventType: RBSSocketEventType.DISCONNECTED
+                            })
+                        })
+                        .onError((i, ev) => {
+                            console.log("SOCKET error")
+                            this._socketEvents.next({
+                                eventType: RBSSocketEventType.ERROR,
+                                error: ev
+                            })
+                        })
+                        .onMessage((i, ev) => {
+                            console.log("SOCKET message")
+                            this._socketEvents.next({
+                                eventType: RBSSocketEventType.MESSAGE_RECEIVED,
+                                data: ev.data
+                            })
+                        })
+                        .onRetry((i, ev) => {
+                            console.log("SOCKET retry")
+                            this._socketEvents.next({
+                                eventType: RBSSocketEventType.RETRY,
+                                error: ev
+                            })
+                        })
+                        // .withBackoff(new ConstantBackoff(1000)) // 1000ms = 1s
+                        .build()
+
+                    this._socket = {
+                        socket,
+                        userId
+                    }
+                }
+            }
+
+
+        })
+
+
     }
 
 
@@ -401,7 +571,7 @@ export default class RBS {
     }
 
 
-    logMessage = (logMessage:LogMessage) => {
+    logMessage = (logMessage: LogMessage) => {
 
     }
 
@@ -638,7 +808,7 @@ export default class RBS {
             // Browser environment
             const storedTokenData = localStorage.getItem(RBS_TOKENS_KEY)
             if (storedTokenData) {
-                const data:RBSTokenData = JSON.parse(storedTokenData)
+                const data: RBSTokenData = JSON.parse(storedTokenData)
                 const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(data.accessToken).exp || 0
                 const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(data.refreshToken).exp || 0
                 data.accessTokenExpiresAt = accessTokenExpiresAt
@@ -741,6 +911,11 @@ export default class RBS {
         } else {
             // Browser environment
             localStorage.removeItem(RBS_TOKENS_KEY)
+            
+            if(this._socket && this._socket.socket) {
+                this._socket.socket.close()
+            }
+            
         }
 
         this.fireAuthStatus(this.getStoredTokenData())
