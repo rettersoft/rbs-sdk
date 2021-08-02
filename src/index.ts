@@ -106,6 +106,7 @@ interface RBSClientConfig {
     regionConfiguration?: RbsRegionConfiguration
     anonymTokenTTL?: number
     logLevel?: LogLevelDesc
+    platform?: string
 }
 
 export enum RBSAuthStatus {
@@ -464,9 +465,16 @@ export default class RBS {
 
                         log.info('RBSSDK LOG: token refresh needed')
                         // console.log('refreshing token')
-                        actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
-                            refreshToken: storedTokenData.refreshToken
-                        })
+
+                        try {
+
+                            actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
+                                refreshToken: storedTokenData.refreshToken
+                            })
+
+                        } catch(err) {
+                            this.signOut()
+                        }
 
                         log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
 
@@ -505,6 +513,10 @@ export default class RBS {
         return (await this.axiosInstance!.get<T>(url, { params: queryParams })).data
     }
 
+    getPlatform = () : string => {
+        return this.clientConfig?.platform ? this.clientConfig.platform : 'WEB'
+    }
+
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             let params: any = {
@@ -523,6 +535,8 @@ export default class RBS {
             if (actionWrapper.action?.culture) {
                 params.culture = actionWrapper.action.culture
             }
+
+            params.platform = this.getPlatform()
 
             this
                 .axiosInstance!
@@ -559,6 +573,8 @@ export default class RBS {
         if (actionWrapper.action?.culture) {
             params.culture = actionWrapper.action.culture
         }
+
+        params.platform = this.getPlatform()
 
         return params
     }
