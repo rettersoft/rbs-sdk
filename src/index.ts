@@ -530,7 +530,7 @@ export default class RBS {
             }
             if (actionWrapper.action?.headers) {
                 params.headers = base64Helpers.urlEncode(JSON.stringify(actionWrapper.action?.headers))
-                console.log('params.headers', params.headers)
+                // console.log('params.headers', params.headers)
             }
             if (actionWrapper.action?.culture) {
                 params.culture = actionWrapper.action.culture
