@@ -1,6 +1,4 @@
-import { fdatasync } from "fs";
 import jwt from 'jsonwebtoken'
-import { RbsJwtPayload } from "src";
 
 
 
@@ -20,6 +18,7 @@ export interface ActionEvent {
     claims: any
     isAnonymous: boolean
     culture: string
+    platform: string
 }
 
 export const headers: any = {
@@ -143,6 +142,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let claimsBase64 = event.headers["X-Rbs-User-Claims"] || event.headers["x-rbs-user-claims"]
 
     let culture = event.headers["X-Rbs-Culture"] || event.headers["x-rbs-culture"]
+
+    let platform = event.headers["X-Rbs-Platform"] || event.headers["x-rbs-platform"]
     
     // X-Rbs-ProcessExecutionId
     // X-Rbs-ProcessId
@@ -158,7 +159,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
 
     if(decoded.projectId !== projectId || decoded.identity !== identity) throw new Error('Auth failed. Invalid JWT Token')
 
-    let isAnonymous = decoded.anonymous ? true : false
+    let isAnonymous = !!decoded.anonymous
 
     let isBase64Encoded = false 
     if(event['isBase64Encoded']) {
@@ -190,7 +191,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         processExecutorRole,
         claims,
         culture,
-        isAnonymous
+        isAnonymous,
+        platform,
     }
 }
 
