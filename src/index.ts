@@ -748,18 +748,46 @@ export default class RBS {
 
     }
 
-    public signOut = () => {
+    public signOut = () : Promise<boolean> => {
+
         if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
-        if (this.isNode()) {
-            // Node environment
-            this.latestTokenData = undefined
-        } else {
-            // Browser environment
-            localStorage.removeItem(RBS_TOKENS_KEY)
-        }
+        return new Promise(async (resolve, reject) => {
 
-        this.fireAuthStatus(this.getStoredTokenData())
+            const action = 'rbs.core.request.LOGOUT_USER'
+            let endpoint = `${this.getBaseUrl(action)}/user/action/${this.clientConfig!.projectId}/${action}`
+            let tokenData = this.getStoredTokenData()
+
+            try {
+
+                await this.post(endpoint, {
+                    tokenData,
+                    action: {
+                        action,
+                        
+                        data: {
+                            refreshToken: tokenData?.refreshToken
+                        }
+                    }
+                })
+                
+            } catch(err) {
+
+            }
+
+
+            if (this.isNode()) {
+                // Node environment
+                this.latestTokenData = undefined
+            } else {
+                // Browser environment
+                localStorage.removeItem(RBS_TOKENS_KEY)
+            }
+    
+            this.fireAuthStatus(this.getStoredTokenData())
+
+            resolve(true)
+        })
     }
 
 
