@@ -1,7 +1,3 @@
-### More information about RBS
-
-[RBS Documentation](https://github.com/rettersoft/rbs-docs/wiki)
-
 ### Installation
 
 `npm install @rettersoft/rbs-sdk`
@@ -18,21 +14,21 @@ RBS JS SDK can be used in two types of clients:
 Client can be initialized with a project id. **Project ID** can is a unique id of a project created in RBS developer console.
 
 ```
-const rbs = new RBS({
-    projectId: "{PROJECT_ID}"
+const rbs = RBS.getInstance({
+  projectId: '{PROJECT_ID}'
 })
 ```
 
 ### Service initialization
 
 ```
-const rbs = new RBS({
-    projectId: "{PROJECT_ID}",
-    developerId: "{COMPANY_ID}", // Optional
-    serviceId: "{SERVICE_ID}", // Optional
-    secretKey: "{SECRET_KEY}" // Optional
-    rbsUrl: 'https://core-test.rettermobile.com' // Optional. 
-})
+const rbs = RBS.getInstance({
+    projectId: request.projectId,
+    developerId: 'rbs',
+    serviceId: 'pm',
+    secretKey: process.env.RBS_SECRET_KEY,
+    region: RbsRegion.euWest1Beta,
+}, true) // return new instance or cached instance
 ```
 
 **Developer Id**: The id of the developer registered in RBS developer console.
@@ -56,12 +52,18 @@ const rbs = new RBS({
 
 ```
 let result = await rbs.send({
-    action: 'rbs.basicauth.request.START_AUTH',
+    action: 'rbs.someservice.request.SOME_ACTION',
     data: {
-        "msisdn": "+905301232323"
+        "a": "1"
     }
 })
 ```
+
+### Authenticate with custom token
+```
+let authResult = await rbs.authenticateWithCustomToken("{A_CUSTOM_TOKEN}")
+```
+
 
 ### Auth State Change Listener
 
@@ -88,4 +90,5 @@ export interface RBSAuthChangedEvent {
     message?: string
 }
 ```
+
 
