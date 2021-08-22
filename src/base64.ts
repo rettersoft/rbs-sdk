@@ -6,6 +6,8 @@
  *
  */
 
+var Buffer = require('buffer/').Buffer
+
 var base64Helpers:any = {}
 
 base64Helpers.encode = function(unencoded:string) {

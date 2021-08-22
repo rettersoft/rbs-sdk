@@ -1,5 +1,6 @@
-import jwt from 'jsonwebtoken'
 
+
+var Buffer = require('buffer/').Buffer
 
 
 
@@ -155,7 +156,9 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         claims = JSON.parse(claimsStr)
     }
 
-    const decoded:any = jwt.verify(token, serviceSecret)
+    console.log("YES_REQUIRED")
+    
+    const decoded:any = {} //_jsonwebtoken.verify(token, serviceSecret)
 
     if(decoded.projectId !== projectId || decoded.identity !== identity) throw new Error('Auth failed. Invalid JWT Token')
 
