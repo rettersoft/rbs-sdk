@@ -2,12 +2,12 @@ import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, 
 import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce, distinctUntilChanged } from 'rxjs/operators';
 import { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwtDecode from "jwt-decode";
-import { createResponse, parseActionEvent, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
+import { createResponse, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
 import initializeAxios from "./axiosSetup";
 import base64Helpers from './base64'
 import log, { LogLevelDesc } from 'loglevel'
 
-export { ActionEvent, createResponse, parseActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
+export { ActionEvent, createResponse, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -242,20 +242,20 @@ export default class RBS {
                 let actionWrapper: RBSActionWrapper = {
                     action
                 }
-                
+
                 return await this.getActionWithTokenData(actionWrapper)
             }),
             tap(actionWrapper => {
-                
+
                 this.fireAuthStatus(actionWrapper.tokenData)
             }),
             filter(actionWrapper => actionWrapper.tokenData != null),
             tap(async actionWrapper => {
-                
+
                 await this.setTokenData(actionWrapper.tokenData!)
             }),
             mergeMap((ev) => {
-                
+
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
                 const action = ev.action!.action!
                 const actionType = action.split('.')[2]
@@ -270,7 +270,7 @@ export default class RBS {
                     // console.log('running post request to', endpoint)
                     return defer(() => this.post(endpoint, ev)).pipe(materialize())
                 }
-                
+
             }),
             share()
         )
@@ -278,13 +278,13 @@ export default class RBS {
         actionResult.pipe(
             filter((r) => r.hasValue && r.kind === "N")
         ).subscribe(e => {
-            
+
             if (e.value?.action?.onSuccess) {
-            
+
                 if (e.value.action.generateGetUrl) {
                     e.value.action.onSuccess(e.value.url)
                 } else {
-            
+
                     e.value.action.onSuccess(e.value?.response)
                 }
             }
@@ -293,11 +293,11 @@ export default class RBS {
         actionResult.pipe(
             filter((r) => r.hasValue === false && r.kind === "E")
         ).subscribe(e => {
-            
+
             if (e.error) {
                 let actionWrapper: RBSActionWrapper = e.error
                 if (actionWrapper.action?.onError) {
-            
+
                     actionWrapper.action?.onError(actionWrapper.responseError)
                 }
             }
@@ -425,7 +425,7 @@ export default class RBS {
             if (item) {
                 storedTokenData = JSON.parse(item)
             }
-        }   
+        }
         else {
             // I'm in node js
             // Node environment
@@ -448,99 +448,76 @@ export default class RBS {
 
             log.info('RBSSDK LOG: getActionWithTokenData started')
 
-            if (this.clientConfig!.secretKey && this.clientConfig!.serviceId) {
 
-                log.info('RBSSDK LOG: secretKey and serviceId found')
 
-                console.log("YES_REQUIRED2")
+            log.info('RBSSDK LOG: secretKey and serviceId not found')
 
-                var jsonwebtoken = this.getJsonWebToken()
-                
-                let token = jsonwebtoken.sign({
-                    projectId: this.clientConfig!.projectId,
-                    identity: `${this.clientConfig!.developerId}.${this.clientConfig!.serviceId}`,
-                }, this.clientConfig!.secretKey!, {
-                    expiresIn: "2 days"
-                })
+            let now = this.getSafeNow()
 
-                actionWrapper.tokenData = {
-                    accessToken: token,
-                    refreshToken: '',
-                    isServiceToken: true,
-                    accessTokenExpiresAt: 0,
-                    refreshTokenExpiresAt: 0
+            log.info('RBSSDK LOG: now:', now)
+
+            let storedTokenData: RBSTokenData | undefined = await this._getStoredTokenData()
+
+            log.info('RBSSDK LOG: storedTokenData:', storedTokenData)
+
+            if (storedTokenData) {
+
+                log.info('RBSSDK LOG: storedTokenData is defined')
+
+                const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
+                const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
+
+                // If token doesn't need refreshing return it.
+                if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
+
+                    log.info('RBSSDK LOG: returning same token')
+                    // Just return same token
+                    actionWrapper.tokenData = storedTokenData
+
                 }
 
+                // If token needs refreshing, refresh it.
+                if (refreshTokenExpiresAt > now && accessTokenExpiresAt <= now) {  // now + 280 -> only wait 20 seconds for debugging
+                    // Refresh token
+
+                    log.info('RBSSDK LOG: token refresh needed')
+                    // console.log('refreshing token')
+
+                    try {
+
+                        actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
+                            refreshToken: storedTokenData.refreshToken
+                        })
+
+                    } catch (err) {
+                        this.signOut()
+                    }
+
+                    log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
+
+                }
             } else {
 
-                log.info('RBSSDK LOG: secretKey and serviceId not found')
+                log.info('RBSSDK LOG: getting anonym token')
 
-                let now = this.getSafeNow()
+                // Get anonym token
+                const url = this.getBaseUrl('') + '/public/anonymous-auth'
 
-                log.info('RBSSDK LOG: now:', now)
-
-                let storedTokenData: RBSTokenData | undefined = await this._getStoredTokenData()
-
-                log.info('RBSSDK LOG: storedTokenData:', storedTokenData)
-
-                if (storedTokenData) {
-
-                    log.info('RBSSDK LOG: storedTokenData is defined')
-
-                    const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
-                    const refreshTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.refreshToken).exp || 0
-
-                    // If token doesn't need refreshing return it.
-                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
-
-                        log.info('RBSSDK LOG: returning same token')
-                        // Just return same token
-                        actionWrapper.tokenData = storedTokenData
-
-                    }
-
-                    // If token needs refreshing, refresh it.
-                    if (refreshTokenExpiresAt > now && accessTokenExpiresAt <= now) {  // now + 280 -> only wait 20 seconds for debugging
-                        // Refresh token
-
-                        log.info('RBSSDK LOG: token refresh needed')
-                        // console.log('refreshing token')
-
-                        try {
-
-                            actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
-                                refreshToken: storedTokenData.refreshToken
-                            })
-
-                        } catch (err) {
-                            this.signOut()
-                        }
-
-                        log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
-
-                    }
-                } else {
-
-                    log.info('RBSSDK LOG: getting anonym token')
-
-                    // Get anonym token
-                    const url = this.getBaseUrl('') + '/public/anonymous-auth'
-
-                    let params: any = {
-                        projectId: this.clientConfig!.projectId,
-                        developerId: this.clientConfig!.developerId,
-                        serviceId: this.clientConfig!.serviceId,
-                    }
-                    if (this.clientConfig!.anonymTokenTTL) {
-                        params.ttlInSeconds = this.clientConfig!.anonymTokenTTL
-                    }
-
-                    actionWrapper.tokenData = await this.getP<RBSTokenData>(url, params)
-
-                    log.info('RBSSDK LOG: fetched anonym token:', actionWrapper.tokenData)
+                let params: any = {
+                    projectId: this.clientConfig!.projectId,
+                    developerId: this.clientConfig!.developerId,
+                    serviceId: this.clientConfig!.serviceId,
+                }
+                if (this.clientConfig!.anonymTokenTTL) {
+                    params.ttlInSeconds = this.clientConfig!.anonymTokenTTL
                 }
 
+                actionWrapper.tokenData = await this.getP<RBSTokenData>(url, params)
+
+                log.info('RBSSDK LOG: fetched anonym token:', actionWrapper.tokenData)
             }
+
+
 
             log.info('RBSSDK LOG: resolving with actionWrapper:', actionWrapper)
 
@@ -685,7 +662,7 @@ export default class RBS {
 
             await AsyncStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
 
-            
+
         }
         else {
             // I'm in node js
@@ -696,36 +673,7 @@ export default class RBS {
 
     }
 
-    getJsonWebToken = () : any => {
 
-        if (typeof document != 'undefined') {
-            // I'm on the web!
-            // Browser environment
-            console.log("DEBUG:REQUIRE 1")
-            // return require('jsonwebtoken')
-
-            return {}
-        }
-        else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
-            // I'm in react-native
-
-            console.log("DEBUG:REQUIRE 2")
-
-            return {}
-
-            
-            
-        }
-        else {
-            // I'm in node js
-            // Node environment
-            // return require('jsonwebtoken')
-            console.log("DEBUG:REQUIRE 3")
-            return {}
-        }
-
-
-    }
 
     // PUBLIC METHODS
 
