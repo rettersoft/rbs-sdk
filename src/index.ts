@@ -57,7 +57,7 @@ export interface RBSTokenData {
 type SuccessCallBack = (resp: any) => any;
 type ErrorCallBack = (e: any) => any;
 
-interface RBSAction {
+export interface RBSAction {
     action?: string
     targetServiceId?: string
     relatedUserId?: string
