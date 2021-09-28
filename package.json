@@ -1,5 +1,5 @@
 {
-  "name": "@rettersoft/rbs-service-sdk",
+  "name": "@rettersoft/rbs-nodejs-sdk",
   "version": "0.9.1",
   "description": "Service sdk for retter business services",
   "main": "dist/index.js",
