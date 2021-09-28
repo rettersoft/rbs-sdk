@@ -21,6 +21,7 @@ export interface ActionEvent {
     isAnonymous: boolean
     culture: string
     platform: string
+    userSessionId: string | undefined
 }
 
 export const headers: any = {
@@ -138,6 +139,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
     let clientOs = event.headers["X-Rbs-Client-Os"] || event.headers["x-rbs-client-os"]
     let platform = event.headers["X-Rbs-Platform"] || event.headers["x-rbs-platform"]
+    let userSessionId = event.headers["X-Rbs-Session-Id"] || event.headers["x-rbs-session-id"]
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
     let processExecutorId = event.headers["X-Rbs-ProcessExecutorId"] || event.headers["x-rbs-processexecutorid"]
@@ -200,6 +202,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         claims,
         culture,
         isAnonymous,
+        userSessionId,
     }
 }
 
