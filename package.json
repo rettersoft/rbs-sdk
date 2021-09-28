@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rettersoft/rbs-sdk.git"
+    "url": "git+https://github.com/rettersoft/rbs-sdk.git#nodejs-master"
   },
   "author": "Baran Baygan",
   "license": "ISC",
