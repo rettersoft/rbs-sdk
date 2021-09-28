@@ -10,6 +10,7 @@ export interface ActionEvent {
     projectId: string
     identity: string
     userId: string
+    clientOs: string
     serviceId: string
     actionPayload: any
     processExecutionId: string
@@ -135,6 +136,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
     let identity = event.headers["X-Rbs-Identity"] || event.headers["x-rbs-identity"]
     let userId = event.headers["X-Rbs-UserId"] || event.headers["x-rbs-userid"]
     let serviceId = event.headers["X-Rbs-ServiceId"] || event.headers["x-rbs-serviceid"]
+    let clientOs = event.headers["X-Rbs-Client-Os"] || event.headers["x-rbs-client-os"]
+    let platform = event.headers["X-Rbs-Platform"] || event.headers["x-rbs-platform"]
     let processExecutionId = event.headers["X-Rbs-ProcessExecutionId"] || event.headers["x-rbs-processexecutionid"]
     let processId = event.headers["X-Rbs-ProcessId"] || event.headers["x-rbs-processid"]
     let processExecutorId = event.headers["X-Rbs-ProcessExecutorId"] || event.headers["x-rbs-processexecutorid"]
@@ -144,7 +147,7 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
 
     let culture = event.headers["X-Rbs-Culture"] || event.headers["x-rbs-culture"]
 
-    let platform = event.headers["X-Rbs-Platform"] || event.headers["x-rbs-platform"]
+    
     
     // X-Rbs-ProcessExecutionId
     // X-Rbs-ProcessId
@@ -188,6 +191,8 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         projectId,
         serviceId,
         userId,
+        clientOs,
+        platform,
         processId,
         processExecutionId,
         processExecutorId,
@@ -195,7 +200,6 @@ export const parseActionEvent = (event: any, serviceSecret:string): ActionEvent 
         claims,
         culture,
         isAnonymous,
-        platform,
     }
 }
 
