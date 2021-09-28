@@ -1,6 +1,6 @@
 ### Installation
 
-`npm install @rettersoft/rbs-sdk`
+`npm install @rettersoft/rbs-nodejs-sdk`
 
 ### Usage
 
