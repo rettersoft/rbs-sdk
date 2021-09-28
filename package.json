@@ -1,6 +1,6 @@
 {
   "name": "@rettersoft/rbs-nodejs-sdk",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Service sdk for retter business services",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
