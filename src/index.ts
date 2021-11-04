@@ -1,24 +1,25 @@
-import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject, timer } from 'rxjs';
-import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce, distinctUntilChanged } from 'rxjs/operators';
-import { AxiosInstance, AxiosRequestConfig } from 'axios'
-import jwtDecode from "jwt-decode";
-import { createResponse, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
-import initializeAxios from "./axiosSetup";
-import base64Helpers from './base64'
+import jwtDecode from 'jwt-decode'
 import log, { LogLevelDesc } from 'loglevel'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { AxiosInstance, AxiosRequestConfig } from 'axios'
+import { Subject, Observable, defer, ReplaySubject } from 'rxjs'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { tap, concatMap, materialize, filter, share, map, mergeMap, distinctUntilChanged } from 'rxjs/operators'
 
-export { ActionEvent, createResponse, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError };
+import base64Helpers from './base64'
+import { firestore } from './firebase'
+import initializeAxios from './axiosSetup'
+import { createResponse, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
+import { Unsubscribe } from '@firebase/util'
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
-
+export { ActionEvent, createResponse, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError }
 
 enum LogLevel {
     VERBOSE = 1,
     DEBUG,
-    ERROR
+    ERROR,
 }
+
 interface LogMessage {
     level: LogLevel
     message: string
@@ -32,7 +33,9 @@ export interface ServiceResponse {
     response: any
     durationInMilliseconds: number
     executionDurationInMilliseconds: number
-    headers: { [key: string]: string }
+    headers: {
+        [key: string]: string
+    }
 }
 
 export interface RbsJwtPayload {
@@ -47,15 +50,17 @@ export interface RbsJwtPayload {
 }
 
 export interface RBSTokenData {
+    fbToken?: string
     accessToken: string
     refreshToken: string
+    fbTokenExpiresAt?: number
     accessTokenExpiresAt: number
     refreshTokenExpiresAt: number
     isServiceToken: boolean
 }
 
-type SuccessCallBack = (resp: any) => any;
-type ErrorCallBack = (e: any) => any;
+type SuccessCallBack = (resp: any) => any
+type ErrorCallBack = (e: any) => any
 
 export interface RBSAction {
     action?: string
@@ -79,27 +84,29 @@ interface RBSActionWrapper {
     url?: string
 }
 
-
-
 export interface RbsRegionConfiguration {
-    regionId?: RbsRegion,
-    getUrl: string,
+    regionId?: RbsRegion
+    getUrl: string
     url: string
 }
 
 export enum RbsRegion {
-    euWest1, euWest1Beta
+    euWest1,
+    euWest1Beta,
 }
 
-const RbsRegions: Array<RbsRegionConfiguration> = [{
-    regionId: RbsRegion.euWest1,
-    getUrl: 'https://core.rtbs.io',
-    url: 'https://core-internal.rtbs.io'
-}, {
-    regionId: RbsRegion.euWest1Beta,
-    getUrl: 'https://core-test.rettermobile.com',
-    url: 'https://core-internal-beta.rtbs.io'
-}]
+const RbsRegions: RbsRegionConfiguration[] = [
+    {
+        regionId: RbsRegion.euWest1,
+        getUrl: 'https://core.rtbs.io',
+        url: 'https://core-internal.rtbs.io',
+    },
+    {
+        regionId: RbsRegion.euWest1Beta,
+        getUrl: 'https://core-test.rettermobile.com',
+        url: 'https://core-internal-beta.rtbs.io',
+    },
+]
 
 interface RBSClientConfig {
     projectId: string
@@ -114,10 +121,10 @@ interface RBSClientConfig {
 }
 
 export enum RBSAuthStatus {
-    SIGNED_IN = "SIGNED_IN",
-    SIGNED_IN_ANONYM = "SIGNED_IN_ANONYM",
-    SIGNED_OUT = "SIGNED_OUT",
-    AUTH_FAILED = "AUTH_FAILED"
+    SIGNED_IN = 'SIGNED_IN',
+    SIGNED_IN_ANONYM = 'SIGNED_IN_ANONYM',
+    SIGNED_OUT = 'SIGNED_OUT',
+    AUTH_FAILED = 'AUTH_FAILED',
 }
 
 export interface RBSAuthChangedEvent {
@@ -127,12 +134,28 @@ export interface RBSAuthChangedEvent {
     message?: string
 }
 
-const RBS_TOKENS_KEY = "RBS_TOKENS_KEY"
+interface RBSCloudObjectEvents {
+    role: Unsubscribe
+    user: Unsubscribe
+    public: Unsubscribe
+}
 
+interface RBSCloudObject {
+    config: RBSCloudObjectData
+    events: RBSCloudObjectEvents
+}
+
+export interface RBSCloudObjectData {
+    classId: string
+    instanceId?: string
+}
+
+const RBS_TOKENS_KEY = 'RBS_TOKENS_KEY'
 
 export default class RBS {
-
     private static instance: RBS | null = null
+
+    private cloudObjects: RBSCloudObject[] = []
 
     private commandQueue = new Subject<RBSAction>()
     private customAuthQueue = new Subject<RBSAction>()
@@ -152,13 +175,8 @@ export default class RBS {
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
 
     public get authStatus(): Observable<RBSAuthChangedEvent> {
-        return this.authStatusSubject
-            .asObservable()
-            .pipe(distinctUntilChanged((a, b) => a.authStatus === b.authStatus &&
-                a.identity === b.identity &&
-                a.uid === b.uid))
+        return this.authStatusSubject.asObservable().pipe(distinctUntilChanged((a, b) => a.authStatus === b.authStatus && a.identity === b.identity && a.uid === b.uid))
         // .pipe(debounce(() => timer(100)))
-
     }
 
     private getServiceEndpoint = (actionWrapper: RBSActionWrapper): string => {
@@ -170,7 +188,6 @@ export default class RBS {
     }
 
     private getBaseUrl = (action: string): string => {
-
         let region: RbsRegionConfiguration | undefined = undefined
 
         if (this.clientConfig!.regionConfiguration) {
@@ -191,7 +208,7 @@ export default class RBS {
         }
     }
 
-    private constructor() { }
+    private constructor() {}
 
     public static getInstance(config: RBSClientConfig | null = null, newInstance: boolean = true): RBS {
         if (!RBS.instance || newInstance) {
@@ -208,9 +225,7 @@ export default class RBS {
     }
 
     init(config: RBSClientConfig) {
-
-
-        console.log("RBS-INIT")
+        console.log('RBS-INIT')
 
         if (this.initialized) throw new Error('RBS SDK already initialized.')
         this.initialized = true
@@ -220,16 +235,12 @@ export default class RBS {
             headers: {
                 'Content-Type': 'application/json',
             },
+            timeout: 30000,
+        }
 
-            timeout: 30000
-        };
+        this.axiosInstance = initializeAxios(axiosRequestConfiguration)
 
-        this.axiosInstance = initializeAxios(axiosRequestConfiguration);
-
-        if (config.logLevel)
-            log.setLevel(config.logLevel)
-        else
-            log.setLevel("ERROR")
+        config.logLevel ? log.setLevel(config.logLevel) : log.setLevel('ERROR')
 
         this.clientConfig! = config
 
@@ -240,22 +251,19 @@ export default class RBS {
         let actionResult = incomingAction.pipe(
             concatMap(async action => {
                 let actionWrapper: RBSActionWrapper = {
-                    action
+                    action,
                 }
 
                 return await this.getActionWithTokenData(actionWrapper)
             }),
             tap(actionWrapper => {
-
                 this.fireAuthStatus(actionWrapper.tokenData)
             }),
             filter(actionWrapper => actionWrapper.tokenData != null),
             tap(async actionWrapper => {
-
                 await this.setTokenData(actionWrapper.tokenData!)
             }),
-            mergeMap((ev) => {
-
+            mergeMap(ev => {
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
                 const action = ev.action!.action!
                 const actionType = action.split('.')[2]
@@ -270,50 +278,37 @@ export default class RBS {
                     // console.log('running post request to', endpoint)
                     return defer(() => this.post(endpoint, ev)).pipe(materialize())
                 }
-
             }),
             share()
         )
 
-        actionResult.pipe(
-            filter((r) => r.hasValue && r.kind === "N")
-        ).subscribe(e => {
-
+        actionResult.pipe(filter(r => r.hasValue && r.kind === 'N')).subscribe(e => {
             if (e.value?.action?.onSuccess) {
-
                 if (e.value.action.generateGetUrl) {
                     e.value.action.onSuccess(e.value.url)
                 } else {
-
                     e.value.action.onSuccess(e.value?.response)
                 }
             }
         })
 
-        actionResult.pipe(
-            filter((r) => r.hasValue === false && r.kind === "E")
-        ).subscribe(e => {
-
+        actionResult.pipe(filter(r => r.hasValue === false && r.kind === 'E')).subscribe(e => {
             if (e.error) {
                 let actionWrapper: RBSActionWrapper = e.error
                 if (actionWrapper.action?.onError) {
-
                     actionWrapper.action?.onError(actionWrapper.responseError)
                 }
             }
         })
 
-
         // Custom auth
 
-
         let customAuthResult = this.customAuthQueue.pipe(
-            concatMap((action) => {
-
+            concatMap(action => {
                 // console.log('HEYHAT')
 
                 let actionWrapper: RBSActionWrapper = {
-                    action
+                    action,
                 }
 
                 // const url = this.getBaseUrl(action.action!) + '/public/auth'
@@ -325,41 +320,43 @@ export default class RBS {
             share()
         )
 
-        customAuthResult.pipe(
-            filter((r) => r.hasValue && r.kind === "N"),
-            map(e => {
-                let actionWrapper = e.value!
-                actionWrapper.tokenData = {
-                    accessToken: actionWrapper.response.data.accessToken,
-                    refreshToken: actionWrapper.response.data.refreshToken,
-                    isServiceToken: false,
-                    accessTokenExpiresAt: 0,
-                    refreshTokenExpiresAt: 0
+        customAuthResult
+            .pipe(
+                filter(r => r.hasValue && r.kind === 'N'),
+                map(e => {
+                    let actionWrapper = e.value!
+                    actionWrapper.tokenData = {
+                        fbToken: actionWrapper.response.data.fbToken,
+                        accessToken: actionWrapper.response.data.accessToken,
+                        refreshToken: actionWrapper.response.data.refreshToken,
+                        isServiceToken: false,
+                        fbTokenExpiresAt: 0,
+                        accessTokenExpiresAt: 0,
+                        refreshTokenExpiresAt: 0,
+                    }
+                    return actionWrapper
+                }),
+                tap(async actionWrapper => {
+                    if (actionWrapper.tokenData) {
+                        await this.setTokenData(actionWrapper.tokenData)
+                    }
+                    this.fireAuthStatus(actionWrapper.tokenData)
+                })
+            )
+            .subscribe(async actionWrapper => {
+                let authEvent = this.getAuthChangedEvent(await this.getStoredTokenData())
+                if (actionWrapper.action!.onSuccess) {
+                    actionWrapper.action!.onSuccess(authEvent)
                 }
-                return actionWrapper
-            }),
-            tap(async actionWrapper => {
-                if (actionWrapper.tokenData) {
-                    await this.setTokenData(actionWrapper.tokenData)
-                }
-                this.fireAuthStatus(actionWrapper.tokenData)
             })
-        ).subscribe(async (actionWrapper) => {
-            let authEvent = this.getAuthChangedEvent(await this.getStoredTokenData())
-            if (actionWrapper.action!.onSuccess) {
-                actionWrapper.action!.onSuccess(authEvent)
-            }
-        })
 
-        customAuthResult.pipe(
-            filter((r) => r.hasValue === false && r.kind === "E")
-        ).subscribe(e => {
+        customAuthResult.pipe(filter(r => r.hasValue === false && r.kind === 'E')).subscribe(e => {
             if (e.error) {
                 let actionWrapper: RBSActionWrapper = e.error
                 if (actionWrapper.action?.onError) {
                     actionWrapper.action?.onError({
                         authStatus: RBSAuthStatus.AUTH_FAILED,
-                        message: actionWrapper.responseError
+                        message: actionWrapper.responseError,
                     })
                 }
             }
@@ -368,17 +365,14 @@ export default class RBS {
         setTimeout(async () => {
             this.fireAuthStatus(await this.getStoredTokenData())
         }, 1)
-
     }
-
 
     getAuthChangedEvent = (tokenData: RBSTokenData | undefined): RBSAuthChangedEvent => {
         if (!tokenData) {
             return {
-                authStatus: RBSAuthStatus.SIGNED_OUT
+                authStatus: RBSAuthStatus.SIGNED_OUT,
             }
         } else {
-
             const data: RbsJwtPayload = jwtDecode<RbsJwtPayload>(tokenData!.accessToken)
 
             if (data.anonymous) {
@@ -388,7 +382,6 @@ export default class RBS {
                     identity: data.identity,
                 }
             } else {
-
                 return {
                     authStatus: RBSAuthStatus.SIGNED_IN,
                     uid: data.userId,
@@ -414,8 +407,7 @@ export default class RBS {
             if (item) {
                 storedTokenData = JSON.parse(item)
             }
-        }
-        else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
+        } else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
             // I'm in react-native
 
             console.log('DEBUG:RUNNING ON ReactNative 1')
@@ -425,8 +417,7 @@ export default class RBS {
             if (item) {
                 storedTokenData = JSON.parse(item)
             }
-        }
-        else {
+        } else {
             // I'm in node js
             // Node environment
             storedTokenData = this.latestTokenData
@@ -435,20 +426,11 @@ export default class RBS {
         return storedTokenData
     }
 
-
-    logMessage = (logMessage: LogMessage) => {
-
-    }
-
-
+    logMessage = (logMessage: LogMessage) => {}
 
     getActionWithTokenData = (actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
-
         return new Promise(async (resolve, reject) => {
-
             log.info('RBSSDK LOG: getActionWithTokenData started')
-
-
 
             log.info('RBSSDK LOG: secretKey and serviceId not found')
 
@@ -461,7 +443,6 @@ export default class RBS {
             log.info('RBSSDK LOG: storedTokenData:', storedTokenData)
 
             if (storedTokenData) {
-
                 log.info('RBSSDK LOG: storedTokenData is defined')
 
                 const accessTokenExpiresAt = jwtDecode<RbsJwtPayload>(storedTokenData.accessToken).exp || 0
@@ -469,35 +450,30 @@ export default class RBS {
 
                 // If token doesn't need refreshing return it.
                 if (refreshTokenExpiresAt > now && accessTokenExpiresAt > now) {
-
                     log.info('RBSSDK LOG: returning same token')
                     // Just return same token
                     actionWrapper.tokenData = storedTokenData
-
                 }
 
                 // If token needs refreshing, refresh it.
-                if (refreshTokenExpiresAt > now && accessTokenExpiresAt <= now) {  // now + 280 -> only wait 20 seconds for debugging
+                if (refreshTokenExpiresAt > now && accessTokenExpiresAt <= now) {
+                    // now + 280 -> only wait 20 seconds for debugging
                     // Refresh token
 
                     log.info('RBSSDK LOG: token refresh needed')
                     // console.log('refreshing token')
 
                     try {
-
                         actionWrapper.tokenData = await this.getP<RBSTokenData>(this.getBaseUrl('') + '/public/auth-refresh', {
-                            refreshToken: storedTokenData.refreshToken
+                            refreshToken: storedTokenData.refreshToken,
                         })
-
                     } catch (err) {
                         this.signOut()
                     }
 
                     log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
-
                 }
             } else {
-
                 log.info('RBSSDK LOG: getting anonym token')
 
                 // Get anonym token
@@ -517,13 +493,10 @@ export default class RBS {
                 log.info('RBSSDK LOG: fetched anonym token:', actionWrapper.tokenData)
             }
 
-
-
             log.info('RBSSDK LOG: resolving with actionWrapper:', actionWrapper)
 
             resolve(actionWrapper)
         })
-
     }
 
     getP = async <T>(url: string, queryParams?: object): Promise<T> => {
@@ -555,15 +528,14 @@ export default class RBS {
 
             params.platform = this.getPlatform()
 
-            this
-                .axiosInstance!
-                .post(url, actionWrapper.action?.data, {
-                    params
-                })
-                .then((resp) => {
+            this.axiosInstance!.post(url, actionWrapper.action?.data, {
+                params,
+            })
+                .then(resp => {
                     actionWrapper.response = resp.data
                     resolve(actionWrapper)
-                }).catch((err) => {
+                })
+                .catch(err => {
                     actionWrapper.responseError = err
                     reject(actionWrapper)
                 })
@@ -610,75 +582,67 @@ export default class RBS {
 
                 actionWrapper.url = url
                 resolve(actionWrapper)
-
             } else {
                 this.axiosInstance!.get(url, {
                     params,
                     headers: {
                         ['Content-Type']: 'text/plain',
-                        ...actionWrapper.action?.headers
-                    }
-                }).then((resp) => {
-                    actionWrapper.response = resp.data
-                    resolve(actionWrapper)
-                }).catch((err) => {
-                    actionWrapper.responseError = err
-                    reject(actionWrapper)
+                        ...actionWrapper.action?.headers,
+                    },
                 })
+                    .then(resp => {
+                        actionWrapper.response = resp.data
+                        resolve(actionWrapper)
+                    })
+                    .catch(err => {
+                        actionWrapper.responseError = err
+                        reject(actionWrapper)
+                    })
             }
-
         })
     }
 
     getPlain = (url: string, params: any, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             this.axiosInstance!.get(url, {
-                params
-            }).then((resp) => {
-                actionWrapper.response = resp
-                resolve(actionWrapper)
-            }).catch((err) => {
-                actionWrapper.responseError = err
-                reject(actionWrapper)
+                params,
             })
+                .then(resp => {
+                    actionWrapper.response = resp
+                    resolve(actionWrapper)
+                })
+                .catch(err => {
+                    actionWrapper.responseError = err
+                    reject(actionWrapper)
+                })
         })
     }
 
     getSafeNow = (): number => {
-        return Math.round((new Date()).getTime() / 1000) + 30 // Plus 30 seconds, just in case.
+        return Math.round(new Date().getTime() / 1000) + 30 // Plus 30 seconds, just in case.
     }
 
     setTokenData = async (tokenData: RBSTokenData) => {
-
         if (typeof document != 'undefined') {
             // I'm on the web!
             // Browser environment
             localStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
-        }
-        else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
+        } else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
             // I'm in react-native
 
             console.log('DEBUG:RUNNING ON ReactNative 2')
 
             await AsyncStorage.setItem(RBS_TOKENS_KEY, JSON.stringify(tokenData))
-
-
-        }
-        else {
+        } else {
             // I'm in node js
             // Node environment
             this.latestTokenData = tokenData
         }
-
-
     }
-
-
 
     // PUBLIC METHODS
 
     public getStoredTokenData = async (): Promise<RBSTokenData | undefined> => {
-
         if (typeof document != 'undefined') {
             // I'm on the web!
             // Browser environment
@@ -693,8 +657,7 @@ export default class RBS {
             } else {
                 return undefined
             }
-        }
-        else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
+        } else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
             // I'm in react-native
 
             console.log('DEBUG:RUNNING ON ReactNative 3')
@@ -710,12 +673,10 @@ export default class RBS {
             } else {
                 return undefined
             }
-        }
-        else {
+        } else {
             // Node environment
             return this.latestTokenData
         }
-
     }
 
     public getUser = async (): Promise<RbsJwtPayload | null> => {
@@ -725,7 +686,6 @@ export default class RBS {
     }
 
     public generatePublicGetActionUrl = (action: RBSAction): string => {
-
         let actionWrapper: RBSActionWrapper = {
             action,
             tokenData: {
@@ -733,8 +693,8 @@ export default class RBS {
                 accessToken: '',
                 refreshToken: '',
                 accessTokenExpiresAt: 0,
-                refreshTokenExpiresAt: 0
-            }
+                refreshTokenExpiresAt: 0,
+            },
         }
 
         let params = this.getParams(actionWrapper)
@@ -750,7 +710,6 @@ export default class RBS {
     }
 
     public generateGetActionUrl = (action: RBSAction): Promise<string> => {
-
         if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         if (!action.culture) action.culture = 'en-US'
@@ -765,8 +724,7 @@ export default class RBS {
         })
     }
 
-    public send = (action: RBSAction): Promise<Array<ServiceResponse>> => {
-
+    public send = (action: RBSAction): Promise<ServiceResponse[]> => {
         if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         if (!action.culture) action.culture = 'en-US'
@@ -781,66 +739,53 @@ export default class RBS {
     }
 
     public authenticateWithCustomToken = (token: string): Promise<RBSAuthChangedEvent> => {
-
         if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         return new Promise((resolve, reject) => {
-
             let action = {
                 action: 'customauth', // this string is not used here.
                 data: token,
 
                 onSuccess: resolve,
-                onError: reject
+                onError: reject,
             }
 
             this.customAuthQueue.next(action)
         })
-
-
     }
 
     public signOut = (): Promise<boolean> => {
-
         if (!this.initialized) throw new Error('RBS SDK is not initialized')
 
         return new Promise(async (resolve, reject) => {
-
             const action = 'rbs.core.request.LOGOUT_USER'
             let endpoint = `${this.getBaseUrl(action)}/user/action/${this.clientConfig!.projectId}/${action}`
             let tokenData = await this.getStoredTokenData()
 
             try {
-
                 await this.post(endpoint, {
                     tokenData,
                     action: {
                         action,
 
                         data: {
-                            refreshToken: tokenData?.refreshToken
-                        }
-                    }
+                            refreshToken: tokenData?.refreshToken,
+                        },
+                    },
                 })
-
-            } catch (err) {
-
-            }
-
+            } catch (err) {}
 
             if (typeof document != 'undefined') {
                 // I'm on the web!
                 // Browser environment
                 localStorage.removeItem(RBS_TOKENS_KEY)
-            }
-            else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
+            } else if (typeof navigator != 'undefined' && navigator.product == 'ReactNative') {
                 // I'm in react-native
 
                 console.log('DEBUG:RUNNING ON ReactNative 4')
 
                 await AsyncStorage.removeItem(RBS_TOKENS_KEY)
-            }
-            else {
+            } else {
                 // I'm in node js
                 // Node environment
                 this.latestTokenData = undefined
@@ -852,5 +797,54 @@ export default class RBS {
         })
     }
 
+    protected getFirebaseListeners = async (data: RBSCloudObjectData, queue: ReplaySubject<any>, key: keyof RBSCloudObjectEvents): Promise<Unsubscribe | null> => {
+        const userData = await this.getUser()
+        if (!userData && key !== 'public') return null
 
+        let collection = `/projects/${this.clientConfig!.projectId}/classes/${data.classId}/instances`
+        if (key === 'role') {
+            collection += `/roleState/${userData?.identity}`
+        }
+        if (key === 'user') {
+            collection += `/userState/${userData?.userId}`
+        }
+
+        const document = doc(firestore, collection, data.instanceId ?? '1')
+
+        const unsubscribe = onSnapshot(document, doc => {
+            const data = Object.assign({}, doc.data())
+            for (const key of Object.keys(data)) {
+                if (key.startsWith('__')) delete data[key]
+            }
+            queue.next(data)
+        })
+
+        return unsubscribe
+    }
+
+    public getCloudObject = async (data: RBSCloudObjectData): Promise<any> => {
+        // TODO: get instance id from server
+        const queues = {
+            roleQueue: new ReplaySubject<any>(1),
+            userQueue: new ReplaySubject<any>(1),
+            publicQueue: new ReplaySubject<any>(1),
+        }
+
+        const events = {
+            role: queues.roleQueue.asObservable(),
+            user: queues.userQueue.asObservable(),
+            public: queues.publicQueue.asObservable(),
+        }
+
+        this.cloudObjects.push({
+            config: data,
+            events: {
+                role: (await this.getFirebaseListeners(data, queues.roleQueue, 'role'))!,
+                user: (await this.getFirebaseListeners(data, queues.userQueue, 'user'))!,
+                public: (await this.getFirebaseListeners(data, queues.publicQueue, 'public'))!,
+            },
+        })
+
+        return { events }
+    }
 }

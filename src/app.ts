@@ -23,7 +23,7 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} fro
 
 const rbs = RBS.getInstance()
 rbs.init({
-    projectId: "3b7eea955170401685ec7ac0187ef787",
+    projectId: "project1",
     region: RbsRegion.euWest1Beta,
     anonymTokenTTL: 10000000,
     // logLevel: 'TRACE'
@@ -61,9 +61,18 @@ rbs.init({
 // })
 
 const main = async () => {
+    process.stdin.resume();
+
 
     // let token = await rbs.getAnonymToken(500)
 
+    const object = await rbs.getCloudObject({
+        classId: 'class1',
+        instanceId: 'instance1'
+    })
+    object.events.role.subscribe((e: any) => console.log('role', e))
+    object.events.user.subscribe((e: any) => console.log('user', e))
+    object.events.public.subscribe((e: any) => console.log('public', e))
 
 
     // console.log(token)
@@ -77,13 +86,13 @@ const main = async () => {
     //     }
     // }))
 
-    await rbs.send({
-        action: 'rbs.address.get.COUNTRIES',
+    // await rbs.send({
+    //     action: 'rbs.address.get.COUNTRIES',
 
-        data: {
-            something: 1
-        }
-    })
+    //     data: {
+    //         something: 1
+    //     }
+    // })
 
     // for(let i = 0; i<100; i++) {
     //     p.push(rbs.generateGetActionUrl({

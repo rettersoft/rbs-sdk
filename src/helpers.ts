@@ -1,8 +1,4 @@
-
-
 var Buffer = require('buffer/').Buffer
-
-
 
 export interface ActionEvent {
     action: string
@@ -37,19 +33,27 @@ export enum RESPONSE_TYPE {
     AUTH_FAILED,
     PERMISSION_DENIED,
     NOT_FOUND,
-    INTERNAL_SERVER_ERROR
+    INTERNAL_SERVER_ERROR,
 }
 
 const getStatus = (responseType: RESPONSE_TYPE): number => {
     switch (responseType) {
-        case RESPONSE_TYPE.SUCCESS: return 200
-        case RESPONSE_TYPE.NO_CONTENT: return 204
-        case RESPONSE_TYPE.BAD_REQUEST: return 400
-        case RESPONSE_TYPE.AUTH_FAILED: return 401
-        case RESPONSE_TYPE.PERMISSION_DENIED: return 403
-        case RESPONSE_TYPE.NOT_FOUND: return 404
-        case RESPONSE_TYPE.METHOD_NOT_ALLOWED: return 405
-        case RESPONSE_TYPE.INTERNAL_SERVER_ERROR: return 500
+        case RESPONSE_TYPE.SUCCESS:
+            return 200
+        case RESPONSE_TYPE.NO_CONTENT:
+            return 204
+        case RESPONSE_TYPE.BAD_REQUEST:
+            return 400
+        case RESPONSE_TYPE.AUTH_FAILED:
+            return 401
+        case RESPONSE_TYPE.PERMISSION_DENIED:
+            return 403
+        case RESPONSE_TYPE.NOT_FOUND:
+            return 404
+        case RESPONSE_TYPE.METHOD_NOT_ALLOWED:
+            return 405
+        case RESPONSE_TYPE.INTERNAL_SERVER_ERROR:
+            return 500
     }
 }
 
@@ -67,7 +71,7 @@ export interface RbsServiceResponse {
 }
 
 export class Duration {
-    private _seconds:number = 0
+    private _seconds: number = 0
     static seconds = (amount: number): Duration => {
         let d = new Duration()
         d._seconds = amount
@@ -88,65 +92,65 @@ export class Duration {
         d._seconds = amount * 3600 * 24
         return d
     }
-    getSeconds = () : number => {
+    getSeconds = (): number => {
         return this._seconds
     }
 }
 
 export const createResponse = (response: RbsServiceResponse): any => {
-
     //message: response.message ? response.message : JSON.stringify(response.responseType),
-    
-    if(!response.transform) response.transform = false
+
+    if (!response.transform) response.transform = false
     //if(!response.transformContext) response.transform = false
-    if(!response.culture) response.culture = 'en-US'
+    if (!response.culture) response.culture = 'en-US'
 
     let reqHeaders = {
         ...headers,
         ['x-rbs-errorcode']: response.errorCode,
         ['Cache-Control']: response.cacheForDuration ? `max-age=${response.cacheForDuration.getSeconds()}` : 'max-age=0',
-        ...response.headers
+        ...response.headers,
     }
 
-    if(response.transform) {
+    if (response.transform) {
         reqHeaders['x-rbs-transform'] = response.transform
-        if(response.transformContext) reqHeaders['x-rbs-transform-context'] = Buffer.from(JSON.stringify(response.transformContext)).toString('base64')
+        if (response.transformContext) reqHeaders['x-rbs-transform-context'] = Buffer.from(JSON.stringify(response.transformContext)).toString('base64')
     }
 
     reqHeaders['x-rbs-culture'] = response.culture
-    
+
     return {
         statusCode: getStatus(response.responseType),
         headers: reqHeaders,
         body: JSON.stringify({
             errors: response.errors,
-            data: response.data
-        })
+            data: response.data,
+        }),
     }
 }
 
 export interface ValidationError {
-    target?: Object; // Object that was validated.
-    property?: string; // Object's property that haven't pass validation.
-    value?: any; // Value that haven't pass a validation.
-    constraints?: { // Constraints that failed validation with error messages.
-        [type: string]: string;
-    };
-    children?: ValidationError[]; // Contains all nested validation errors of the property
+    target?: Object // Object that was validated.
+    property?: string // Object's property that haven't pass validation.
+    value?: any // Value that haven't pass a validation.
+    constraints?: {
+        // Constraints that failed validation with error messages.
+        [type: string]: string
+    }
+    children?: ValidationError[] // Contains all nested validation errors of the property
 }
 
-export const parseClassValidatorErrors = (errors: Array<ValidationError>): Array<string> => {
+export const parseClassValidatorErrors = (errors: ValidationError[]): string[] => {
     let root: ValidationError = {
         target: {},
         property: '',
         value: '',
-        children: errors
+        children: errors,
     }
 
     return parseClassValidatorErrorObject('root', root)
 }
 
-const parseClassValidatorErrorObject = (path: string, validationError: ValidationError): Array<string> => {
+const parseClassValidatorErrorObject = (path: string, validationError: ValidationError): string[] => {
     let errStrings: string[] = []
 
     if (validationError.constraints) {
