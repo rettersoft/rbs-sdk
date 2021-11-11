@@ -1,6 +1,6 @@
 {
   "name": "@rettersoft/rbs-sdk",
-  "version": "0.10.1",
+  "version": "1.0.0-alpha.1",
   "description": "Client sdk for retter business services",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,13 +21,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jest": "^26.0.14",
+    "@types/node": "^16.11.7",
     "dotenv": "^8.2.0",
     "jest": "26.6.0",
+    "tslib": "^2.3.1",
     "typescript": "^4.0.2"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.15.6",
-    "@types/node": "12.12.62",
     "axios": "0.21.1",
     "buffer": "6.0.3",
     "firebase": "^9.2.0",

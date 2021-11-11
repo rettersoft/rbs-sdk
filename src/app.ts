@@ -1,4 +1,4 @@
-import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} from './index'
+import RBS, { RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse } from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -21,27 +21,26 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} fro
 //     }
 // })
 
-const rbs = RBS.getInstance()
-rbs.init({
-    projectId: "project1",
+const rbs = RBS.getInstance({
+    projectId: '048dbf4ab878487895129a0c778e7996',
     region: RbsRegion.euWest1Beta,
     anonymTokenTTL: 10000000,
-    // logLevel: 'TRACE'
+    // logLevel: 'DEBUG'
 })
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
-    
+
 // })
 
-    // regionConfiguration: {
-    //     getUrl: 'https://core-test.rettermobile.com',
-    //     url: 'https://core-internal-beta.rtbs.io'
-    // }
+// regionConfiguration: {
+//     getUrl: 'https://core-test.rettermobile.com',
+//     url: 'https://core-internal-beta.rtbs.io'
+// }
 
-    // rbsUrl: 'https://core-test.rettermobile.com',
-    // developerId: 'rbs',
-    // serviceId: 'pim',
-    // secretKey: 'awesomesecretkey'
+// rbsUrl: 'https://core-test.rettermobile.com',
+// developerId: 'rbs',
+// serviceId: 'pim',
+// secretKey: 'awesomesecretkey'
 
 // rbs.send({
 //     action: 'rbs.businessuserauth.request.LOGIN',
@@ -61,19 +60,26 @@ rbs.init({
 // })
 
 const main = async () => {
-    process.stdin.resume();
+    process.stdin.resume()
 
+    try {
+        await rbs.send({ action: 'dummy' })
+    } catch (error) {}
 
     // let token = await rbs.getAnonymToken(500)
 
     const object = await rbs.getCloudObject({
-        classId: 'class1',
-        instanceId: 'instance1'
+        classId: 'TEST',
+        instanceId: '01FKZXWZK4S27BQDKN8BF3ND1D',
     })
     object.events.role.subscribe((e: any) => console.log('role', e))
     object.events.user.subscribe((e: any) => console.log('user', e))
     object.events.public.subscribe((e: any) => console.log('public', e))
 
+    const result = await object.call({
+        method: 'TEST',
+        data: {},
+    })
 
     // console.log(token)
 
@@ -118,14 +124,13 @@ const main = async () => {
 
     // console.log(JSON.stringify(url, null, 4))
 
-
     // const url = await rbs.generateGetActionUrl({
     //     action: "rbs.some.get.SOMETHING",
     //     data: {
     //         hey: 1
     //     }
     // })
-    
+
     // console.log('url', url)
 
     // try {
@@ -143,9 +148,6 @@ const main = async () => {
     //     console.log('err', err)
     // }
 
-
-
-
     // let result = await rbs.send({
     //     action: "rbs.businessuserauth.request.LOGIN",
     //     data: {
@@ -153,13 +155,13 @@ const main = async () => {
     //         "password": "12345"
     //     }
     // })
-        
+
     // console.log("Result: ", result)
 
     // let authResult = await rbs.authenticateWithCustomToken(result[0].response.customToken)
 
     // console.log('authResult', authResult)
-    
+
     // console.log(authResult)
 
     // await rbs.send({
@@ -172,8 +174,6 @@ const main = async () => {
     // let searchResult = await send("rbs.product.request.SEARCH", {
     //     "searchTerm": "dove"
     // })
-
-
 }
 
 // const send = (action: string, data: any): Promise<any> => {
@@ -206,4 +206,3 @@ const main = async () => {
 // }
 
 main()
-

@@ -1,16 +1,18 @@
 import jwtDecode from 'jwt-decode'
 import log, { LogLevelDesc } from 'loglevel'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { Unsubscribe } from '@firebase/util'
+import { getFirestore } from 'firebase/firestore'
+import { FirebaseApp, initializeApp } from 'firebase/app'
 import { AxiosInstance, AxiosRequestConfig } from 'axios'
+import { Auth, getAuth, signInWithCustomToken, signOut } from 'firebase/auth'
+import { doc, Firestore, onSnapshot } from 'firebase/firestore'
 import { Subject, Observable, defer, ReplaySubject } from 'rxjs'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tap, concatMap, materialize, filter, share, map, mergeMap, distinctUntilChanged } from 'rxjs/operators'
 
 import base64Helpers from './base64'
-import { firestore } from './firebase'
 import initializeAxios from './axiosSetup'
 import { createResponse, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
-import { Unsubscribe } from '@firebase/util'
 
 export { ActionEvent, createResponse, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError }
 
@@ -50,13 +52,13 @@ export interface RbsJwtPayload {
 }
 
 export interface RBSTokenData {
-    fbToken?: string
     accessToken: string
     refreshToken: string
-    fbTokenExpiresAt?: number
+    firebaseToken?: string
     accessTokenExpiresAt: number
     refreshTokenExpiresAt: number
     isServiceToken: boolean
+    firebase?: FirebaseConfig
 }
 
 type SuccessCallBack = (resp: any) => any
@@ -74,6 +76,12 @@ export interface RBSAction {
 
     onSuccess?: SuccessCallBack
     onError?: ErrorCallBack
+}
+
+interface FirebaseConfig {
+    apiKey: string
+    projectId: string
+    customToken: string
 }
 
 interface RBSActionWrapper {
@@ -135,13 +143,14 @@ export interface RBSAuthChangedEvent {
 }
 
 interface RBSCloudObjectEvents {
-    role: Unsubscribe
-    user: Unsubscribe
-    public: Unsubscribe
+    role: Unsubscribe | null
+    user: Unsubscribe | null
+    public: Unsubscribe | null
 }
 
 interface RBSCloudObject {
     config: RBSCloudObjectData
+    isNewInstance: boolean
     events: RBSCloudObjectEvents
 }
 
@@ -150,10 +159,23 @@ export interface RBSCloudObjectData {
     instanceId?: string
 }
 
+export interface RBSCloudObjectCallData {
+    method: string
+    payload?: {
+        [key: string]: any
+    }
+}
+
 const RBS_TOKENS_KEY = 'RBS_TOKENS_KEY'
 
 export default class RBS {
     private static instance: RBS | null = null
+
+    private firebaseApp: FirebaseApp | null = null
+
+    private firestore: Firestore | null = null
+
+    private firebaseAuth: Auth | null = null
 
     private cloudObjects: RBSCloudObject[] = []
 
@@ -175,7 +197,10 @@ export default class RBS {
     private authStatusSubject = new ReplaySubject<RBSAuthChangedEvent>(1)
 
     public get authStatus(): Observable<RBSAuthChangedEvent> {
-        return this.authStatusSubject.asObservable().pipe(distinctUntilChanged((a, b) => a.authStatus === b.authStatus && a.identity === b.identity && a.uid === b.uid))
+        return this.authStatusSubject.asObservable().pipe(
+            distinctUntilChanged((a, b) => a.authStatus === b.authStatus && a.identity === b.identity && a.uid === b.uid),
+            tap(async e => await this.cleanInitFirebase(e))
+        )
         // .pipe(debounce(() => timer(100)))
     }
 
@@ -326,11 +351,9 @@ export default class RBS {
                 map(e => {
                     let actionWrapper = e.value!
                     actionWrapper.tokenData = {
-                        fbToken: actionWrapper.response.data.fbToken,
                         accessToken: actionWrapper.response.data.accessToken,
                         refreshToken: actionWrapper.response.data.refreshToken,
                         isServiceToken: false,
-                        fbTokenExpiresAt: 0,
                         accessTokenExpiresAt: 0,
                         refreshTokenExpiresAt: 0,
                     }
@@ -361,6 +384,8 @@ export default class RBS {
                 }
             }
         })
+
+        this.authStatus.subscribe()
 
         setTimeout(async () => {
             this.fireAuthStatus(await this.getStoredTokenData())
@@ -797,19 +822,41 @@ export default class RBS {
         })
     }
 
+    protected initFirebase = async (): Promise<void> => {
+        if (this.firebaseApp) return
+
+        const firebaseConfig = (await this.getStoredTokenData())?.firebase
+        if (!firebaseConfig) return
+
+        this.firebaseApp = initializeApp({
+            apiKey: firebaseConfig.apiKey,
+            authDomain: firebaseConfig.projectId + '.firebaseapp.com',
+            projectId: firebaseConfig.projectId,
+        })
+        this.firestore = getFirestore(this.firebaseApp)
+        this.firebaseAuth = getAuth(this.firebaseApp)
+
+        await signInWithCustomToken(this.firebaseAuth!, firebaseConfig.customToken)
+    }
+
     protected getFirebaseListeners = async (data: RBSCloudObjectData, queue: ReplaySubject<any>, key: keyof RBSCloudObjectEvents): Promise<Unsubscribe | null> => {
+        if (!this.firebaseApp) await this.cleanInitFirebase()
+
         const userData = await this.getUser()
         if (!userData && key !== 'public') return null
+        let documentId = data.instanceId!
 
         let collection = `/projects/${this.clientConfig!.projectId}/classes/${data.classId}/instances`
         if (key === 'role') {
-            collection += `/roleState/${userData?.identity}`
+            documentId = userData!.identity!
+            collection += `/${data.instanceId}/roleState`
         }
         if (key === 'user') {
-            collection += `/userState/${userData?.userId}`
+            documentId = userData!.userId!
+            collection += `/${data.instanceId}/userState`
         }
 
-        const document = doc(firestore, collection, data.instanceId ?? '1')
+        const document = doc(this.firestore!, collection, documentId)
 
         const unsubscribe = onSnapshot(document, doc => {
             const data = Object.assign({}, doc.data())
@@ -822,8 +869,33 @@ export default class RBS {
         return unsubscribe
     }
 
+    private cleanInitFirebase = async (e: RBSAuthChangedEvent | null = null) => {
+        // unsubscribe from all events
+        this.cloudObjects.map((cloudObject: RBSCloudObject) => {
+            cloudObject.events.user && cloudObject.events.user()
+            cloudObject.events.role && cloudObject.events.role()
+            cloudObject.events.public && cloudObject.events.public()
+        })
+        // init new firebase
+        await this.initFirebase()
+
+        if (e && e.authStatus === RBSAuthStatus.SIGNED_OUT && this.firebaseAuth) {
+            signOut(this.firebaseAuth!)
+        }
+    }
+
     public getCloudObject = async (data: RBSCloudObjectData): Promise<any> => {
-        // TODO: get instance id from server
+        const instanceResponse = await this.send({
+            action: 'rbs.core.request.INSTANCE',
+            data: {
+                classId: data.classId,
+                instanceId: data.instanceId,
+            },
+        })
+
+        const instanceData = instanceResponse[0].response
+        if (instanceData?.instanceId) data.instanceId = instanceData.instanceId
+
         const queues = {
             roleQueue: new ReplaySubject<any>(1),
             userQueue: new ReplaySubject<any>(1),
@@ -838,13 +910,28 @@ export default class RBS {
 
         this.cloudObjects.push({
             config: data,
+            isNewInstance: instanceData?.newInstance ?? false,
             events: {
-                role: (await this.getFirebaseListeners(data, queues.roleQueue, 'role'))!,
-                user: (await this.getFirebaseListeners(data, queues.userQueue, 'user'))!,
-                public: (await this.getFirebaseListeners(data, queues.publicQueue, 'public'))!,
+                role: await this.getFirebaseListeners(data, queues.roleQueue, 'role'),
+                user: await this.getFirebaseListeners(data, queues.userQueue, 'user'),
+                public: await this.getFirebaseListeners(data, queues.publicQueue, 'public'),
             },
         })
 
-        return { events }
+        const call = async (params: RBSCloudObjectCallData) => {
+            const response = await this.send({
+                action: 'rbs.core.request.CALL',
+                data: {
+                    classId: data.classId,
+                    instanceId: data.instanceId,
+                    method: params.method,
+                    payload: params.payload,
+                },
+            })
+
+            return response[0]
+        }
+
+        return { events, call }
     }
 }
