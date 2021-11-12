@@ -157,6 +157,9 @@ interface RBSCloudObject {
 export interface RBSCloudObjectData {
     classId: string
     instanceId?: string
+    payload?: {
+        [key: string]: any
+    }
 }
 
 export interface RBSCloudObjectCallData {
@@ -890,6 +893,7 @@ export default class RBS {
             data: {
                 classId: data.classId,
                 instanceId: data.instanceId,
+                payload: data.payload,
             },
         })
 
