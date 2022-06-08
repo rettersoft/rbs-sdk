@@ -1,5 +1,5 @@
 import { Subject, ObservableInput, Observable, from, zip, combineLatest, defer, ReplaySubject, timer } from 'rxjs'
-import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce, distinctUntilChanged } from 'rxjs/operators'
+import { tap, concatMap, materialize, finalize, filter, share, withLatestFrom, map, mergeMap, debounce, distinctUntilChanged, switchMap } from 'rxjs/operators'
 import { AxiosInstance, AxiosRequestConfig } from 'axios'
 import jwtDecode from 'jwt-decode'
 import { createResponse, ActionEvent, RESPONSE_TYPE, parseClassValidatorErrors, ValidationError } from './helpers'
@@ -95,7 +95,7 @@ const RbsRegions: Array<RbsRegionConfiguration> = [
     },
     {
         regionId: RbsRegion.euWest1Beta,
-        getUrl: 'https://core-test.rettermobile.com',
+        getUrl: 'https://core-test.rtbs.io',
         url: 'https://core-internal-beta.rtbs.io',
     },
 ]
@@ -236,8 +236,9 @@ export default class RBS {
                 this.fireAuthStatus(actionWrapper.tokenData)
             }),
             filter(actionWrapper => actionWrapper.tokenData != null),
-            tap(async actionWrapper => {
+            switchMap(async actionWrapper => {
                 await this.setTokenData(actionWrapper.tokenData!)
+                return actionWrapper
             }),
             mergeMap(ev => {
                 let endpoint = ev.tokenData!.isServiceToken ? '/service/action' : '/user/action'
@@ -442,7 +443,8 @@ export default class RBS {
                             refreshToken: storedTokenData.refreshToken,
                         })
                     } catch (err) {
-                        this.signOut()
+                        log.info('RBSSDK LOG: token couldnt refreshed', err)
+                        await this.signOut()
                     }
 
                     log.info('RBSSDK LOG: refreshed tokenData:', actionWrapper.tokenData)
@@ -593,7 +595,7 @@ export default class RBS {
     }
 
     getSafeNow = (): number => {
-        return Math.round(new Date().getTime() / 1000) + 30 // Plus 30 seconds, just in case.
+        return Math.floor(new Date().getTime() / 1000) + 30 // Plus 30 seconds, just in case.
     }
 
     setTokenData = async (tokenData: RBSTokenData) => {

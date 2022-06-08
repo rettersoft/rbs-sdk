@@ -1,4 +1,4 @@
-import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} from './index'
+import RBS, { RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse } from './index'
 
 // const a = new RBS({
 //     projectId: "7b7ecec721d54629bed1d3b1aec210e8",
@@ -23,25 +23,25 @@ import RBS, {RESPONSE_TYPE, RbsRegion, RBSAuthChangedEvent, ServiceResponse} fro
 
 const rbs = RBS.getInstance()
 rbs.init({
-    projectId: "3b7eea955170401685ec7ac0187ef787",
+    projectId: '3b7eea955170401685ec7ac0187ef787',
     region: RbsRegion.euWest1Beta,
     anonymTokenTTL: 10000000,
-    // logLevel: 'TRACE'
+    logLevel: 'TRACE',
 })
 
 // rbs.authStatus.subscribe((event:RBSAuthChangedEvent) => {
-    
+
 // })
 
-    // regionConfiguration: {
-    //     getUrl: 'https://core-test.rettermobile.com',
-    //     url: 'https://core-internal-beta.rtbs.io'
-    // }
+// regionConfiguration: {
+//     getUrl: 'https://core-test.rettermobile.com',
+//     url: 'https://core-internal-beta.rtbs.io'
+// }
 
-    // rbsUrl: 'https://core-test.rettermobile.com',
-    // developerId: 'rbs',
-    // serviceId: 'pim',
-    // secretKey: 'awesomesecretkey'
+// rbsUrl: 'https://core-test.rettermobile.com',
+// developerId: 'rbs',
+// serviceId: 'pim',
+// secretKey: 'awesomesecretkey'
 
 // rbs.send({
 //     action: 'rbs.businessuserauth.request.LOGIN',
@@ -61,10 +61,7 @@ rbs.init({
 // })
 
 const main = async () => {
-
     // let token = await rbs.getAnonymToken(500)
-
-
 
     // console.log(token)
 
@@ -77,13 +74,15 @@ const main = async () => {
     //     }
     // }))
 
-    await rbs.send({
+    const res = await rbs.send({
         action: 'rbs.address.get.COUNTRIES',
 
         data: {
-            something: 1
-        }
+            something: 1,
+        },
     })
+
+    console.log(res)
 
     // for(let i = 0; i<100; i++) {
     //     p.push(rbs.generateGetActionUrl({
@@ -109,14 +108,13 @@ const main = async () => {
 
     // console.log(JSON.stringify(url, null, 4))
 
-
     // const url = await rbs.generateGetActionUrl({
     //     action: "rbs.some.get.SOMETHING",
     //     data: {
     //         hey: 1
     //     }
     // })
-    
+
     // console.log('url', url)
 
     // try {
@@ -134,9 +132,6 @@ const main = async () => {
     //     console.log('err', err)
     // }
 
-
-
-
     // let result = await rbs.send({
     //     action: "rbs.businessuserauth.request.LOGIN",
     //     data: {
@@ -144,13 +139,13 @@ const main = async () => {
     //         "password": "12345"
     //     }
     // })
-        
+
     // console.log("Result: ", result)
 
     // let authResult = await rbs.authenticateWithCustomToken(result[0].response.customToken)
 
     // console.log('authResult', authResult)
-    
+
     // console.log(authResult)
 
     // await rbs.send({
@@ -163,8 +158,6 @@ const main = async () => {
     // let searchResult = await send("rbs.product.request.SEARCH", {
     //     "searchTerm": "dove"
     // })
-
-
 }
 
 // const send = (action: string, data: any): Promise<any> => {
@@ -197,4 +190,3 @@ const main = async () => {
 // }
 
 main()
-
