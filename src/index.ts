@@ -505,7 +505,6 @@ export default class RBS {
             params.platform = this.getPlatform()
 
             if (!params.headers) params.headers = {}
-
             params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
 
             this.axiosInstance!.post(url, actionWrapper.action?.data, {
@@ -524,7 +523,7 @@ export default class RBS {
 
     getParams = (actionWrapper: RBSActionWrapper): any => {
         let params: any = {
-            auth: actionWrapper.tokenData?.accessToken,
+            // auth: actionWrapper.tokenData?.accessToken,
         }
         if (actionWrapper.action?.data) {
             const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
@@ -544,6 +543,9 @@ export default class RBS {
         }
 
         params.platform = this.getPlatform()
+
+        if (!params.headers) params.headers = {}
+        params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
 
         return params
     }
