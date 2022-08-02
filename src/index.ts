@@ -486,7 +486,7 @@ export default class RBS {
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             let params: any = {
-                auth: actionWrapper.tokenData?.accessToken,
+                // auth: actionWrapper.tokenData?.accessToken,
             }
             if (actionWrapper.action?.targetServiceId) {
                 params.targetServiceId = actionWrapper.action?.targetServiceId
@@ -503,6 +503,10 @@ export default class RBS {
             }
 
             params.platform = this.getPlatform()
+
+            if (!params.headers) params.headers = {}
+
+            params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
 
             this.axiosInstance!.post(url, actionWrapper.action?.data, {
                 params,
