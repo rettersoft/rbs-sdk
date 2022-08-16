@@ -554,6 +554,9 @@ export default class RBS {
         return new Promise((resolve, reject) => {
             let params = this.getParams(actionWrapper)
 
+            const headers = params.headers || {}
+            delete params.headers
+
             if (actionWrapper.action?.generateGetUrl) {
                 // Don't get from server but just return get url
                 let url = this.getBaseUrl(actionWrapper.action.action!) + this.getServiceEndpoint(actionWrapper) + '?'
@@ -569,6 +572,7 @@ export default class RBS {
                     params,
                     headers: {
                         ['Content-Type']: 'text/plain',
+                        ...headers,
                         ...actionWrapper.action?.headers,
                     },
                 })
