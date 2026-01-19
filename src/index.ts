@@ -85,6 +85,7 @@ export interface RbsRegionConfiguration {
 export enum RbsRegion {
     euWest1,
     euWest1Beta,
+    ru
 }
 
 const RbsRegions: Array<RbsRegionConfiguration> = [
@@ -97,6 +98,11 @@ const RbsRegions: Array<RbsRegionConfiguration> = [
         regionId: RbsRegion.euWest1Beta,
         getUrl: 'https://core-test.rtbs.io',
         url: 'https://core-internal-beta.rtbs.io',
+    },
+    {
+        regionId: RbsRegion.ru,
+        getUrl: 'https://core-ru.rtbs.io',
+        url: 'https://core-ru-internal.rtbs.io',
     },
 ]
 
@@ -486,7 +492,7 @@ export default class RBS {
     post = (url: string, actionWrapper: RBSActionWrapper): Promise<RBSActionWrapper> => {
         return new Promise((resolve, reject) => {
             let params: any = {
-                // auth: actionWrapper.tokenData?.accessToken,
+                auth: actionWrapper.tokenData?.accessToken,
             }
             if (actionWrapper.action?.targetServiceId) {
                 params.targetServiceId = actionWrapper.action?.targetServiceId
@@ -505,7 +511,7 @@ export default class RBS {
             params.platform = this.getPlatform()
 
             if (!params.headers) params.headers = {}
-            params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
+            // params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
 
             this.axiosInstance!.post(url, actionWrapper.action?.data, {
                 params,
@@ -523,7 +529,7 @@ export default class RBS {
 
     getParams = (actionWrapper: RBSActionWrapper): any => {
         let params: any = {
-            // auth: actionWrapper.tokenData?.accessToken,
+            auth: actionWrapper.tokenData?.accessToken,
         }
         if (actionWrapper.action?.data) {
             const data = actionWrapper.action?.data ? actionWrapper.action?.data : {}
@@ -545,7 +551,7 @@ export default class RBS {
         params.platform = this.getPlatform()
 
         if (!params.headers) params.headers = {}
-        params.headers['x-rbs-token'] = actionWrapper.tokenData?.accessToken
+        // params.auth['x-rbs-token'] = actionWrapper.tokenData?.accessToken
 
         return params
     }
